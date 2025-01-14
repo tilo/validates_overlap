@@ -20,3 +20,12 @@ production:
   database: db/production.sqlite3
   pool: 5
   timeout: 5000
+
+mongoid:
+  clients:
+    default:
+      database: mongoid_test
+      hosts:
+        - localhost:27017
+      options:
+        server_selection_timeout: 5
