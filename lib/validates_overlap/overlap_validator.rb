@@ -6,21 +6,20 @@ class OverlapValidator < ActiveModel::EachValidator
   BEGIN_OF_UNIX_TIME = Time.at(-2_147_483_648).to_datetime
   END_OF_UNIX_TIME = Time.at(2_147_483_648).to_datetime
 
-  attr_accessor :sql_conditions
-  attr_accessor :sql_values
-  attr_accessor :scoped_model
-
   def initialize(args)
     attributes_are_range(args[:attributes])
 
     super
   end
 
+  # NOTE: Rails registers ONE validator instance per model class, shared by every
+  # validation of that class (including concurrent ones) — so the query being
+  # built must never be stored on the validator itself (issue #50)
   def validate(record)
-    initialize_query(record, options)
-    if overlapped_exists?
+    relation, sql_conditions, sql_values = initialize_query(record, options)
+    if overlapped_exists?(relation, sql_conditions, sql_values)
       if options[:load_overlapped]
-        record.instance_variable_set(:@overlapped_records, get_overlapped)
+        record.instance_variable_set(:@overlapped_records, get_overlapped(relation, sql_conditions, sql_values))
       end
 
       if record.respond_to? attributes.first
@@ -39,22 +38,25 @@ class OverlapValidator < ActiveModel::EachValidator
 
   protected
 
+  # Build the complete overlap query for this record.
+  # return array in form [relation, sql_conditions, sql_values]
   def initialize_query(record, options = {})
     scoped_model = options[:scoped_model].present? ? options[:scoped_model].constantize : record.class
-    self.scoped_model = scoped_model.default_scoped
-    generate_overlap_sql_values(record)
-    generate_overlap_sql_conditions(record)
-    add_attributes(record, options[:scope]) if options && options[:scope].present?
-    add_query_options(options[:query_options]) if options && options[:query_options].present?
+    relation = scoped_model.default_scoped
+    sql_values = generate_overlap_sql_values(record)
+    sql_conditions = generate_overlap_sql_conditions(record)
+    sql_conditions, sql_values = add_attributes(record, options[:scope], sql_conditions, sql_values) if options && options[:scope].present?
+    relation = add_query_options(relation, options[:query_options]) if options && options[:query_options].present?
+    [relation, sql_conditions, sql_values]
   end
 
   # Check if exists at least one record in DB which is overlapped with current record
-  def overlapped_exists?
-    scoped_model.exists?([sql_conditions, sql_values])
+  def overlapped_exists?(relation, sql_conditions, sql_values)
+    relation.exists?([sql_conditions, sql_values])
   end
 
-  def get_overlapped
-    scoped_model.where([sql_conditions, sql_values])
+  def get_overlapped(relation, sql_conditions, sql_values)
+    relation.where([sql_conditions, sql_values])
   end
 
   # Resolve attributes values from record to use in sql conditions
@@ -115,10 +117,10 @@ class OverlapValidator < ActiveModel::EachValidator
     primary_key_name = primary_key(record)
     key = primary_key_value(primary_key_name, record)
     if record.new_record?
-      self.sql_conditions = main_condition
+      main_condition
     else
-      self.sql_conditions = "#{main_condition} AND #{record_table_name(record)}.#{primary_key(record)} !="
-      self.sql_conditions +=   key.is_a?(String) ? "'#{key}'" : key.to_s
+      sql_conditions = "#{main_condition} AND #{record_table_name(record)}.#{primary_key(record)} !="
+      sql_conditions + (key.is_a?(String) ? "'#{key}'" : key.to_s)
     end
   end
 
@@ -127,7 +129,7 @@ class OverlapValidator < ActiveModel::EachValidator
     starts_at_value, ends_at_value = resolve_values_from_attributes(record)
     starts_at_value += options.fetch(:start_shift) { 0 } if starts_at_value && options
     ends_at_value += options.fetch(:end_shift) { 0 } if ends_at_value && options
-    self.sql_values = { starts_at_value: starts_at_value || BEGIN_OF_UNIX_TIME, ends_at_value: ends_at_value || END_OF_UNIX_TIME }
+    { starts_at_value: starts_at_value || BEGIN_OF_UNIX_TIME, ends_at_value: ends_at_value || END_OF_UNIX_TIME }
   end
 
   # Return the condition string depend on exclude_edges option.
@@ -143,20 +145,23 @@ class OverlapValidator < ActiveModel::EachValidator
 
   # Add attributes and values to sql conditions.
   # helps to use with scope options, so scope can be added as this forms :scope => "user_id" or :scope => ["user_id", "place_id"]
-  def add_attributes(record, attrs)
+  # return array in form [sql_conditions, sql_values]
+  def add_attributes(record, attrs, sql_conditions, sql_values)
     if attrs.is_a?(Array)
-      attrs.each { |attr| add_attribute(record, attr) }
+      attrs.each { |attr| sql_conditions, sql_values = add_attribute(record, attr, sql_conditions, sql_values) }
     elsif attrs.is_a?(Hash)
       attrs.each do |attr_name, value|
-        add_attribute(record, attr_name, value)
+        sql_conditions, sql_values = add_attribute(record, attr_name, sql_conditions, sql_values, value)
       end
     else
-      add_attribute(record, attrs)
+      sql_conditions, sql_values = add_attribute(record, attrs, sql_conditions, sql_values)
     end
+    [sql_conditions, sql_values]
   end
 
   # Add attribute and his value to sql condition
-  def add_attribute(record, attr_name, value = nil)
+  # return array in form [sql_conditions, sql_values]
+  def add_attribute(record, attr_name, sql_conditions, sql_values, value = nil)
     _value = resolve_attribute_value(record, attr_name, value)
     operator = if _value.nil?
                  ' IS NULL'
@@ -166,8 +171,9 @@ class OverlapValidator < ActiveModel::EachValidator
                  ' = :%s'
     end
 
-    self.sql_conditions += " AND #{attribute_to_sql(attr_name, record)} #{operator}" % value_attribute_name(attr_name)
-    sql_values.merge!(:"#{value_attribute_name(attr_name)}" => _value)
+    sql_conditions += " AND #{attribute_to_sql(attr_name, record)} #{operator}" % value_attribute_name(attr_name)
+    sql_values = sql_values.merge(:"#{value_attribute_name(attr_name)}" => _value)
+    [sql_conditions, sql_values]
   end
 
   def value_attribute_name(attr_name)
@@ -200,9 +206,11 @@ class OverlapValidator < ActiveModel::EachValidator
   # Allow to use scope, joins, includes methods before querying
   # == Example:
   # validates_overlap :date_from, :date_to, :query_options => {:includes => "visits"}
-  def add_query_options(methods)
+  # return the relation with the query options applied
+  def add_query_options(relation, methods)
     methods.each do |method_name, params|
-      self.scoped_model = scoped_model.send(method_name.to_sym, *params)
+      relation = relation.send(method_name.to_sym, *params)
     end
+    relation
   end
 end
