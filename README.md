@@ -2,14 +2,16 @@
 
 # ValidatesOverlap
 
-This project rocks and uses MIT-LICENSE.
-
-#### This gem is compatible with Rails 6. If you are looking for version compatible with Rails 3,4,5 please use version 0.8.6 .
-
-#### When this gem should be helpful for you?
+`validates_overlap` adds an overlap validation to ActiveRecord models.
 Ideal solution for booking applications where you want to make sure, that one place can be booked only once in specific time period.
 
-#### Using
+You name the two attributes that define a time range — for example starts_at and ends_at — and the validator checks with a single SQL query that no other record's range overlaps it. If one does, the record gets a normal validation error.
+
+Typical uses: bookings, reservations, meetings, work shifts, rentals — anywhere a resource must not be double-booked for the same period.
+
+The check runs entirely in the database, so no records are loaded to compare against. It supports scoping the comparison (per user, per room, …), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at the edges, required gaps between ranges, validating through associations, and loading the conflicting records when you want to show them to the user.
+
+## Usage
 
 Add to your gemfile
 
@@ -90,3 +92,14 @@ class ActiveMeeting < ActiveRecord::Base
 end
 
 ```
+
+## Maintainership
+
+validates_overlap was created by [Robin Bortlik](https://github.com/robinbortlik), who built and maintained it starting 2011. Since August 2026 the gem is maintained by [Tilo Sloboda](https://github.com/tilo).
+
+A big thank you to Robin for creating this gem and for the years of work he put into it. ❤️
+
+## Older Rails Versions
+This gem is compatible with Rails 6. If you are looking for version compatible with Rails 3,4,5 please use version 0.8.6 .
+
+
