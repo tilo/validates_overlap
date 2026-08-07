@@ -10,7 +10,7 @@ Gem::Specification.new do |s|
   s.extra_rdoc_files = [
     'README.md'
   ]
-  s.files = Dir['lib/**/*'] + %w[MIT-LICENSE README.md]
+  s.files = Dir['lib/**/*'] + %w[MIT-LICENSE README.md CHANGELOG.md CONTRIBUTORS.md]
 
   s.homepage = 'https://github.com/tilo/validates_overlap'
   s.licenses = ['MIT']
@@ -20,6 +20,7 @@ Gem::Specification.new do |s|
   s.metadata = {
     'source_code_uri' => "https://github.com/tilo/validates_overlap/tree/v#{s.version}",
     'bug_tracker_uri' => 'https://github.com/tilo/validates_overlap/issues',
+    'changelog_uri' => 'https://github.com/tilo/validates_overlap/blob/main/CHANGELOG.md',
     'rubygems_mfa_required' => 'true'
   }
 
