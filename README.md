@@ -1,6 +1,6 @@
-[![Build Status](https://secure.travis-ci.org/robinbortlik/validates_overlap.png?branch=master)](https://secure.travis-ci.org/robinbortlik/validates_overlap)
-
 # ValidatesOverlap
+
+![Gem Version](https://img.shields.io/gem/v/validates_overlap) [![Ruby](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml/badge.svg)](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml) [![codecov](https://codecov.io/gh/tilo/validates_overlap/branch/main/graph/badge.svg)](https://codecov.io/gh/tilo/validates_overlap) [![Downloads](https://img.shields.io/gem/dt/validates_overlap)](https://rubygems.org/gems/validates_overlap) [![RubyGems](https://img.shields.io/badge/RubyGems-validates__overlap-brightgreen?logo=rubygems&logoColor=white)](https://rubygems.org/gems/validates_overlap) [![Ruby Toolbox](https://img.shields.io/badge/Ruby%20Toolbox-validates__overlap-brightgreen)](https://www.ruby-toolbox.com/projects/validates_overlap)
 
 `validates_overlap` adds an overlap validation to ActiveRecord models.
 Ideal solution for booking applications where you want to make sure, that one place can be booked only once in specific time period.
@@ -10,6 +10,21 @@ You name the two attributes that define a time range — for example starts_at a
 Typical uses: bookings, reservations, meetings, work shifts, rentals — anywhere a resource must not be double-booked for the same period.
 
 The check runs entirely in the database, so no records are loaded to compare against. It supports scoping the comparison (per user, per room, …), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at the edges, required gaps between ranges, validating through associations, and loading the conflicting records when you want to show them to the user.
+
+## Compatibility
+
+Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
+
+| Rails | Tested with Ruby   |
+|-------|--------------------|
+| 8.1   | 3.2, 3.3, 3.4      |
+| 8.0   | 3.2, 3.3, 3.4      |
+| 7.2   | 3.1, 3.2, 3.3, 3.4 |
+| 7.1   | 3.0, 3.1, 3.2, 3.3 |
+| 7.0   | 3.0, 3.1, 3.2      |
+| 6.1   | 3.0                |
+
+The gemspec requires `activerecord >= 6.0`. Rails 6.0 is not part of the test matrix, but no incompatibilities are known. The previous version 0.8.6 was compatible with Rails 3, 4, and 5.
 
 ## Usage
 
@@ -95,11 +110,9 @@ end
 
 ## Maintainership
 
-validates_overlap was created by [Robin Bortlik](https://github.com/robinbortlik), who built and maintained it starting 2011. Since August 2026 the gem is maintained by [Tilo Sloboda](https://github.com/tilo).
+`validates_overlap` was created by [Robin Bortlik](https://github.com/robinbortlik), who built and maintained it starting 2011.
+Since August 2026 the gem is maintained by [Tilo Sloboda](https://github.com/tilo).
 
-A big thank you to Robin for creating this gem and for the years of work he put into it. ❤️
-
-## Older Rails Versions
-This gem is compatible with Rails 6. If you are looking for version compatible with Rails 3,4,5 please use version 0.8.6 .
+A big thank you to Robin for creating this awesome gem and for the years of work he put into it. ❤️
 
 
