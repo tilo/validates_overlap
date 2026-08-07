@@ -1,1 +1,2 @@
-require File.join(File.dirname(__FILE__), 'validates_overlap', 'overlap_validator')
+require_relative 'validates_overlap/version'
+require_relative 'validates_overlap/overlap_validator'

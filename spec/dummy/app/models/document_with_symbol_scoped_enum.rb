@@ -1,4 +1,6 @@
-class DocumentWithEnum < ActiveRecord::Base
+# Same table and validation as DocumentWithEnum, but the scope names the enum
+# attribute as a SYMBOL — regression model for issue #54 (PR #55)
+class DocumentWithSymbolScopedEnum < ActiveRecord::Base
   self.table_name = 'documents_with_enum'
   KINDS = [:contract, :fact, :draft]
 
@@ -11,6 +13,6 @@ class DocumentWithEnum < ActiveRecord::Base
 
   validates :valid_from, :valid_until, overlap: {
     exclude_edges: ['valid_from', 'valid_until'],
-    scope: ['kind']
+    scope: [:kind]
   }
 end

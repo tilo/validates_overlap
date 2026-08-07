@@ -1,0 +1,80 @@
+# install dependencies and run tests against a Ruby x Rails matrix
+# https://github.com/marketplace/actions/setup-ruby-jruby-and-truffleruby
+
+name: Ruby
+
+on:
+  push:
+    branches:
+      - main
+      - maintenance-*
+
+  pull_request:
+
+jobs:
+  test_matrix:
+
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby:
+          - "3.0"
+          - 3.1
+          - 3.2
+          - 3.3
+          - "3.4"
+        rails:
+          - "6.1"
+          - "7.0"
+          - "7.1"
+          - "7.2"
+          - "8.0"
+          - "8.1"
+        exclude:
+          # Rails 6.1 supports Ruby up to 3.0
+          - { rails: "6.1", ruby: 3.1 }
+          - { rails: "6.1", ruby: 3.2 }
+          - { rails: "6.1", ruby: 3.3 }
+          - { rails: "6.1", ruby: "3.4" }
+          # Rails 7.0 supports Ruby up to 3.2
+          - { rails: "7.0", ruby: 3.3 }
+          - { rails: "7.0", ruby: "3.4" }
+          # Rails 7.1 supports Ruby up to 3.3
+          - { rails: "7.1", ruby: "3.4" }
+          # Rails 7.2 requires Ruby >= 3.1
+          - { rails: "7.2", ruby: "3.0" }
+          # Rails 8.0+ requires Ruby >= 3.2
+          - { rails: "8.0", ruby: "3.0" }
+          - { rails: "8.0", ruby: 3.1 }
+          - { rails: "8.1", ruby: "3.0" }
+          - { rails: "8.1", ruby: 3.1 }
+
+    runs-on: ubuntu-latest
+
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails_${{ matrix.rails }}.gemfile
+
+    steps:
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v6
+      - name: setup Ruby ${{ matrix.ruby }} / Rails ${{ matrix.rails }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+      - name: Run tests
+        run: bundle exec rake
+      - name: Upload coverage to Codecov
+        if: matrix.ruby == '3.4' && matrix.rails == '8.1'
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/.resultset.json
+          fail_ci_if_error: false
+
+  finish:
+    runs-on: ubuntu-latest
+    needs: [ test_matrix ]
+    steps:
+      - name: Wait for status checks
+        run: echo "All Green!"

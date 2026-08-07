@@ -1,10 +1,14 @@
-# Configure Rails Envinronment
+# Configure Rails Environment
 ENV['RAILS_ENV'] = 'test'
 
+require 'simplecov'
+SimpleCov.start do
+  add_filter '/spec/'
+end
+
 require File.expand_path('../dummy/config/environment.rb',  __FILE__)
-require 'rails/test_help'
 require 'rspec/rails'
-require 'factory_girl_rails'
+require 'factory_bot_rails'
 require 'database_cleaner'
 require 'pry'
 
@@ -15,11 +19,17 @@ ActionMailer::Base.default_url_options[:host] = 'test.com'
 Rails.backtrace_cleaner.remove_silencers!
 
 # Run any available migration
-ActiveRecord::MigrationContext.new(File.expand_path('../dummy/db/migrate/', __FILE__), ActiveRecord::SchemaMigration).migrate
+# Rails 6.1 requires the schema_migration argument; Rails 7.2+ removed it
+migrations_path = File.expand_path('../dummy/db/migrate/', __FILE__)
+if ActiveRecord::VERSION::MAJOR >= 7
+  ActiveRecord::MigrationContext.new(migrations_path).migrate
+else
+  ActiveRecord::MigrationContext.new(migrations_path, ActiveRecord::SchemaMigration).migrate
+end
 
-# Load support files
-FactoryGirl.definition_file_paths << File.join(File.dirname(__FILE__), '/dummy/spec/factories')
-FactoryGirl.find_definitions
+# Load factory definitions
+FactoryBot.definition_file_paths = [File.expand_path('../dummy/spec/factories', __FILE__)]
+FactoryBot.find_definitions
 
 RSpec.configure do |config|
   # Remove this line if you don't want RSpec's should and should_not

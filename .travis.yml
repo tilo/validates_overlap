@@ -1,6 +1,0 @@
-language: ruby
-rvm:
-  - 2.5.0
-gemfile:
-  - Gemfile.rails60
-script: bundle exec rspec
