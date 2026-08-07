@@ -1,0 +1,7 @@
+source 'https://rubygems.org'
+
+gem 'rails', '~> 7.1.0'
+
+gem 'sqlite3', '~> 1.4' # the sqlite3 adapter in Rails <= 7.1 requires ~> 1.4 at boot, but only at boot — pin so bundler does not resolve 2.x
+
+gemspec path: '..'

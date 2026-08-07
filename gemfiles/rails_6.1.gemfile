@@ -1,0 +1,8 @@
+source 'https://rubygems.org'
+
+gem 'rails', '~> 6.1.0'
+gem 'concurrent-ruby', '< 1.3.5' # Rails < 7.1 fails to boot with concurrent-ruby 1.3.5+ (missing Logger constant)
+
+gem 'sqlite3', '~> 1.4' # the sqlite3 adapter in Rails <= 7.1 requires ~> 1.4 at boot, but only at boot — pin so bundler does not resolve 2.x
+
+gemspec path: '..'

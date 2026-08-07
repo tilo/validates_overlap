@@ -7,5 +7,7 @@ spec/dummy/log/*.log
 spec/dummy/tmp/
 database.yml
 Gemfile*.lock
+gemfiles/*.lock
+coverage/
 .DS_Store
 .ruby-version

@@ -3,13 +3,13 @@ require "#{File.dirname(__FILE__)}/../../../spec_helper"
 describe StartOverlapMeeting do
   it 'create meeting' do
     expect do
-      FactoryGirl.create(:start_overlap_meeting)
+      FactoryBot.create(:start_overlap_meeting)
     end.to change(StartOverlapMeeting, :count).by(1)
   end
 
   context 'Validation with exclude edge starts_at' do
     before do
-      FactoryGirl.create(:start_overlap_meeting)
+      FactoryBot.create(:start_overlap_meeting)
     end
 
     @valid_times = {
@@ -29,7 +29,7 @@ describe StartOverlapMeeting do
 
     @not_valid_times.each do |description, time_range|
       it "is not valid if exists meeting which #{description}" do
-        meeting = FactoryGirl.build(:start_overlap_meeting, starts_at: time_range.first, ends_at: time_range.last)
+        meeting = FactoryBot.build(:start_overlap_meeting, starts_at: time_range.first, ends_at: time_range.last)
         expect(meeting).not_to be_valid
         expect(meeting.errors[:starts_at]).not_to be_empty
         expect(meeting.errors[:ends_at]).to be_empty
@@ -38,7 +38,7 @@ describe StartOverlapMeeting do
 
     @valid_times.each do |description, time_range|
       it "is valid if exists meeting which #{description}" do
-        meeting = FactoryGirl.build(:start_overlap_meeting, starts_at: time_range.first, ends_at: time_range.last)
+        meeting = FactoryBot.build(:start_overlap_meeting, starts_at: time_range.first, ends_at: time_range.last)
         expect(meeting).to be_valid
         expect(meeting.errors[:starts_at]).to be_empty
         expect(meeting.errors[:ends_at]).to be_empty
