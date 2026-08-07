@@ -1,6 +1,6 @@
 # ValidatesOverlap 1.x Change Log
 
-## 1.1.0 (UNRELEASED)
+## 1.1.0 (2026-08-07)
 
 RSpec tests: **81 → 85** (+4 tests)
 
