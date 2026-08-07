@@ -3,11 +3,11 @@
 ![Gem Version](https://img.shields.io/gem/v/validates_overlap) [![Ruby](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml/badge.svg)](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml) [![codecov](https://codecov.io/gh/tilo/validates_overlap/graph/badge.svg)](https://codecov.io/gh/tilo/validates_overlap) [![Downloads](https://img.shields.io/gem/dt/validates_overlap)](https://rubygems.org/gems/validates_overlap) [![RubyGems](https://img.shields.io/badge/RubyGems-validates__overlap-brightgreen?logo=rubygems&logoColor=white)](https://rubygems.org/gems/validates_overlap) [![Ruby Toolbox](https://img.shields.io/badge/Ruby%20Toolbox-validates__overlap-brightgreen)](https://www.ruby-toolbox.com/projects/validates_overlap)
 
 `validates_overlap` adds an overlap validation to ActiveRecord models.
-Ideal solution for booking applications where you want to make sure, that one place can be booked only once in specific time period.
+Ideal solution for booking applications where you want to make sure, that one resource can be booked only once in specific time period.
 
 You name the two attributes that define a time range — for example starts_at and ends_at — and the validator checks with a single SQL query that no other record's range overlaps it. If one does, the record gets a normal validation error.
 
-Typical uses: bookings, reservations, meetings, work shifts, rentals — anywhere a resource must not be double-booked for the same period.
+Typical uses: bookings, reservations, meetings, work shifts, rentals, assignments — anywhere a resource must not be double-booked for the same period.
 
 The check runs entirely in the database, so no records are loaded to compare against. It supports scoping the comparison (per user, per room, …), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at the edges, required gaps between ranges, validating through associations, and loading the conflicting records when you want to show them to the user.
 
