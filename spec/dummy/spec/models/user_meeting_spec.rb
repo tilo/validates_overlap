@@ -31,4 +31,24 @@ describe UserMeeting do
       end
     end
   end
+
+  context 'Validation with scope when the scope attribute is nil' do
+    before do
+      FactoryBot.create(:johns_meeting, user_id: nil)
+    end
+
+    it 'is not valid if an overlapping meeting also has no user' do
+      meeting = FactoryBot.build(:johns_meeting, user_id: nil, starts_at: '2011-01-06'.to_date, ends_at: '2011-01-07'.to_date)
+      expect(meeting).not_to be_valid
+      expect(meeting.errors[:starts_at]).not_to be_empty
+      expect(meeting.errors[:ends_at]).to be_empty
+    end
+
+    it 'is valid if the overlapping meeting belongs to a user' do
+      meeting = FactoryBot.build(:johns_meeting, starts_at: '2011-01-06'.to_date, ends_at: '2011-01-07'.to_date)
+      expect(meeting).to be_valid
+      expect(meeting.errors[:starts_at]).to be_empty
+      expect(meeting.errors[:ends_at]).to be_empty
+    end
+  end
 end
