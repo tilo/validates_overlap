@@ -182,7 +182,7 @@ class OverlapValidator < ActiveModel::EachValidator
       value = record.read_attribute(attr_name)
 
       if is_enum_attribute?(record, attr_name)
-        value = record.class.defined_enums[attr_name][value]
+        value = record.class.defined_enums[attr_name.to_s][value]
       end
 
       value
