@@ -51,6 +51,9 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    # the CODECOV_TOKEN secret lives in this GitHub environment; without declaring it here, the upload step sees no token
+    environment: test
+
     env:
       BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails_${{ matrix.rails }}.gemfile
 
