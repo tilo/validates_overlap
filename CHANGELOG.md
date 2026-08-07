@@ -1,5 +1,17 @@
 # ValidatesOverlap 1.x Change Log
 
+## 1.2.0 (UNRELEASED)
+
+RSpec tests: **85 → 86** (+1 test)
+
+### Bug Fixes
+
+  - fixed [Issue #50](https://github.com/tilo/validates_overlap/issues/50): the validator kept the query it was building (conditions, values, relation) as state on the per-class validator instance that Rails shares across all validations of a model class — concurrent validations of the same class could corrupt each other, surfacing intermittently as `ActiveRecord::PreparedStatementInvalid` ("missing value for :..._value") or as silently wrong validation results. The validator is now stateless: the query is built in locals and passed through the call chain. Thanks to [Jorge Santos](https://github.com/jsantos) for the original report
+
+### Internal
+
+  - the accessors `sql_conditions`, `sql_values`, and `scoped_model` on `OverlapValidator` were removed — they were the shared mutable state; the protected query-building methods now take and return their inputs
+
 ## 1.1.0 (2026-08-07)
 
 RSpec tests: **81 → 85** (+4 tests)
