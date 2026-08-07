@@ -1,6 +1,6 @@
 # A Big Thank You to all 21 Contributors!!
 
-validates_overlap was created in 2011 by [Robin Bortlik](https://github.com/robinbortlik), who designed it and maintained it through 2019, reviewing and merging every pull request below along the way. Thank you, Robin, for this gem and all the work you put into it! ❤️
+`validates_overlap` was created in 2011 by [Robin Bortlik](https://github.com/robinbortlik), who designed it and maintained it, reviewing and merging every pull request below along the way. Thank you, Robin, for this gem and all the work you put into it! ❤️
 
 A Big Thank you to everyone who filed issues, sent comments, and who contributed with pull requests:
 
