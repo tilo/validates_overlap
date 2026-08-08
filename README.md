@@ -9,7 +9,9 @@ You name the two attributes that define a time range — for example starts_at a
 
 Typical uses: bookings, reservations, meetings, work shifts, rentals, assignments — anywhere a resource must not be double-booked for the same period.
 
-The check runs entirely in the database, so no records are loaded to compare against. It supports scoping the comparison (per user, per room, …), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at the edges, required gaps between ranges, validating through associations, and loading the conflicting records when you want to show them to the user.
+The check runs entirely in the database, so no records are loaded to compare against. It supports scoping the comparison (per user, per room, …), open-ended ranges (a nil start or end counts as extending forever), validating through associations, and loading the conflicting records when you want to show them to the user.
+
+How strict the check is, is up to you: by default any overlap — even touching edges — is rejected. You can allow ranges to touch (`exclude_edges`), require a minimum gap between records, or tolerate a specified amount of overlap (`start_shift` / `end_shift`).
 
 ## Compatibility
 
@@ -57,8 +59,14 @@ validates :starts_at, :ends_at, :overlap => {:exclude_edges => ["starts_at", "en
 
 #### shift edges
 
+The shifts move the record's own range edges before the overlap check, so you can require a gap between records — or tolerate a bounded overlap:
+
 ```ruby
+# widen the range: records must be at least 1 day apart (gap enforced)
 validates :starts_at, :ends_at, :overlap => {:start_shift => -1.day, :end_shift => 1.day}
+
+# shrink the range: up to 2 days of overlap are accepted
+validates :starts_at, :ends_at, :overlap => {:start_shift => 2.days, :end_shift => -2.days}
 ```
 
 #### define custom validation key(s) and message
