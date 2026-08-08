@@ -2,11 +2,15 @@
 
 ## 1.2.0 (2026-08-10)
 
-RSpec tests: **85 → 86** (+1 test)
+RSpec tests: **85 → 88** (+3 tests)
 
 ### Bug Fixes
 
   - the validator is now stateless and thread-safe — fixes [Issue #50](https://github.com/tilo/validates_overlap/issues/50): concurrent validations of the same model class could corrupt each other's query, because Rails shares one validator instance per class and the query lived on it as instance state (intermittent `ActiveRecord::PreparedStatementInvalid`, or silently wrong validation results). Thanks to [Jorge Santos](https://github.com/jsantos) for the report
+
+### Improvements
+
+  - documented in the README that `start_shift` / `end_shift` work in both directions: widening the range enforces a minimum gap, shrinking it tolerates a specified amount of overlap — now locked in by specs
 
 ### Internal
 
