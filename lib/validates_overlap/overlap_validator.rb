@@ -44,7 +44,8 @@ class OverlapValidator < ActiveModel::EachValidator
     scoped_model = options[:scoped_model].present? ? options[:scoped_model].constantize : record.class
     relation = scoped_model.default_scoped
     sql_values = generate_overlap_sql_values(record)
-    sql_conditions = generate_overlap_sql_conditions(record)
+    sql_conditions, primary_key_values = generate_overlap_sql_conditions(record)
+    sql_values = sql_values.merge(primary_key_values)
     sql_conditions, sql_values = add_attributes(record, options[:scope], sql_conditions, sql_values) if options && options[:scope].present?
     relation = add_query_options(relation, options[:query_options]) if options && options[:query_options].present?
     [relation, sql_conditions, sql_values]
@@ -110,25 +111,29 @@ class OverlapValidator < ActiveModel::EachValidator
     record.send(primary_key_name)
   end
 
-  # Generate sql condition for time range cross
+  # Generate sql condition for time range cross; a persisted record is excluded
+  # from the comparison by its primary key, passed as a bind value
+  # return array in form [sql_conditions, sql_values]
   def generate_overlap_sql_conditions(record)
     starts_at_attr, ends_at_attr = attributes_to_sql(record)
     main_condition = condition_string(starts_at_attr, ends_at_attr)
-    primary_key_name = primary_key(record)
-    key = primary_key_value(primary_key_name, record)
     if record.new_record?
-      main_condition
+      [main_condition, {}]
     else
-      sql_conditions = "#{main_condition} AND #{record_table_name(record)}.#{primary_key(record)} !="
-      sql_conditions + (key.is_a?(String) ? "'#{key}'" : key.to_s)
+      key = primary_key_value(primary_key(record), record)
+      ["#{main_condition} AND #{record_table_name(record)}.#{primary_key(record)} != :record_primary_key_value", { record_primary_key_value: key }]
     end
   end
 
   # Return hash of values for overlap sql condition
+  # NOTE: shifts are only applied when configured — unconditionally adding a
+  # default of 0 would raise a TypeError for non-numeric types such as String
   def generate_overlap_sql_values(record)
     starts_at_value, ends_at_value = resolve_values_from_attributes(record)
-    starts_at_value += options.fetch(:start_shift) { 0 } if starts_at_value && options
-    ends_at_value += options.fetch(:end_shift) { 0 } if ends_at_value && options
+    start_shift = options && options[:start_shift]
+    end_shift = options && options[:end_shift]
+    starts_at_value += start_shift if starts_at_value && start_shift
+    ends_at_value += end_shift if ends_at_value && end_shift
     { starts_at_value: starts_at_value || BEGIN_OF_UNIX_TIME, ends_at_value: ends_at_value || END_OF_UNIX_TIME }
   end
 
