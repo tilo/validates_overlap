@@ -8,6 +8,8 @@ You specify two attributes defining a time range, such as `starts_at` and `ends_
 
 It also supports scoped validation (per user, room, resource, etc.), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at their boundaries (`exclude_edges`), required gaps between ranges or a tolerated amount of overlap (`start_shift` / `end_shift`), associations, and retrieving the conflicting records.
 
+The range columns don't have to be dates or times: any orderable column type works, such as integer ranges (ticket number blocks) or string ranges (alphabetical partitions).
+
 ## Compatibility
 
 Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
@@ -62,6 +64,21 @@ validates :starts_at, :ends_at, :overlap => {:start_shift => -1.day, :end_shift 
 
 # shrink the range: up to 2 days of overlap are accepted
 validates :starts_at, :ends_at, :overlap => {:start_shift => 2.days, :end_shift => -2.days}
+```
+
+#### non-date ranges
+
+The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks) or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too.
+
+```ruby
+class TicketBlock < ActiveRecord::Base
+  validates :number_start, :number_end, :overlap => true
+end
+
+TicketBlock.create!(number_start: 100, number_end: 199)
+TicketBlock.new(number_start: 150, number_end: 250).valid?  # => false (overlaps)
+TicketBlock.new(number_start: 150, number_end: nil).valid?  # => false (open-ended, overlaps)
+TicketBlock.new(number_start: 200, number_end: 299).valid?  # => true
 ```
 
 #### define custom validation key(s) and message
