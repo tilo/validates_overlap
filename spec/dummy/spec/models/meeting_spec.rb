@@ -63,6 +63,13 @@ describe Meeting do
         meeting = FactoryBot.build(:meeting, starts_at: nil, ends_at: nil)
         expect(meeting).not_to be_valid
       end
+
+      it 'conflicts with meetings in the far future (beyond 2038)' do
+        FactoryBot.create(:meeting, starts_at: '2040-01-05'.to_date, ends_at: '2040-01-08'.to_date)
+
+        meeting = FactoryBot.build(:meeting, starts_at: '2039-01-01'.to_date, ends_at: nil)
+        expect(meeting).not_to be_valid
+      end
     end
   end
 end

@@ -22,5 +22,22 @@ describe NameRange do
       expect(range).to be_valid
       expect(range.errors[:range_start]).to be_empty
     end
+
+    context 'with open-ended (nil) endpoints' do
+      it 'is not valid if an upward-open range overlaps' do
+        range = NameRange.new(range_start: 'Baker', range_end: nil)
+        expect(range).not_to be_valid
+      end
+
+      it 'is not valid if a downward-open range overlaps' do
+        range = NameRange.new(range_start: nil, range_end: 'Baker')
+        expect(range).not_to be_valid
+      end
+
+      it 'is valid if an upward-open range starts beyond the existing range' do
+        range = NameRange.new(range_start: 'Garcia', range_end: nil)
+        expect(range).to be_valid
+      end
+    end
   end
 end

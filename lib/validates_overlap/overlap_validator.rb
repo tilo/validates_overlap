@@ -3,9 +3,6 @@ require 'active_support/i18n'
 I18n.load_path << File.dirname(__FILE__) + '/locale/en.yml'
 
 class OverlapValidator < ActiveModel::EachValidator
-  BEGIN_OF_UNIX_TIME = Time.at(-2_147_483_648).to_datetime
-  END_OF_UNIX_TIME = Time.at(2_147_483_648).to_datetime
-
   def initialize(args)
     attributes_are_range(args[:attributes])
 
@@ -44,7 +41,7 @@ class OverlapValidator < ActiveModel::EachValidator
     scoped_model = options[:scoped_model].present? ? options[:scoped_model].constantize : record.class
     relation = scoped_model.default_scoped
     sql_values = generate_overlap_sql_values(record)
-    sql_conditions, primary_key_values = generate_overlap_sql_conditions(record)
+    sql_conditions, primary_key_values = generate_overlap_sql_conditions(record, sql_values)
     sql_values = sql_values.merge(primary_key_values)
     sql_conditions, sql_values = add_attributes(record, options[:scope], sql_conditions, sql_values) if options && options[:scope].present?
     relation = add_query_options(relation, options[:query_options]) if options && options[:query_options].present?
@@ -114,9 +111,9 @@ class OverlapValidator < ActiveModel::EachValidator
   # Generate sql condition for time range cross; a persisted record is excluded
   # from the comparison by its primary key, passed as a bind value
   # return array in form [sql_conditions, sql_values]
-  def generate_overlap_sql_conditions(record)
+  def generate_overlap_sql_conditions(record, sql_values)
     starts_at_attr, ends_at_attr = attributes_to_sql(record)
-    main_condition = condition_string(starts_at_attr, ends_at_attr)
+    main_condition = condition_string(starts_at_attr, ends_at_attr, sql_values)
     if record.new_record?
       [main_condition, {}]
     else
@@ -125,7 +122,9 @@ class OverlapValidator < ActiveModel::EachValidator
     end
   end
 
-  # Return hash of values for overlap sql condition
+  # Return hash of values for overlap sql condition; a nil endpoint means the
+  # record's range is open-ended on that side — no value is emitted for it and
+  # condition_string drops the corresponding comparison
   # NOTE: shifts are only applied when configured — unconditionally adding a
   # default of 0 would raise a TypeError for non-numeric types such as String
   def generate_overlap_sql_values(record)
@@ -134,18 +133,24 @@ class OverlapValidator < ActiveModel::EachValidator
     end_shift = options && options[:end_shift]
     starts_at_value += start_shift if starts_at_value && start_shift
     ends_at_value += end_shift if ends_at_value && end_shift
-    { starts_at_value: starts_at_value || BEGIN_OF_UNIX_TIME, ends_at_value: ends_at_value || END_OF_UNIX_TIME }
+    sql_values = {}
+    sql_values[:starts_at_value] = starts_at_value if starts_at_value
+    sql_values[:ends_at_value] = ends_at_value if ends_at_value
+    sql_values
   end
 
   # Return the condition string depend on exclude_edges option.
-  def condition_string(starts_at_attr, ends_at_attr)
+  # A comparison is only emitted for endpoints the record actually has: an
+  # open-ended side matches every other record by definition, so its clause is
+  # dropped (a record with both endpoints nil overlaps everything)
+  def condition_string(starts_at_attr, ends_at_attr, sql_values)
     except_option = Array(options[:exclude_edges]).map(&:to_s)
     starts_at_sign = except_option.include?(starts_at_attr.to_s.split('.').last) ? '<' : '<='
     ends_at_sign = except_option.include?(ends_at_attr.to_s.split('.').last) ? '>' : '>='
     query = []
-    query << "(#{ends_at_attr} IS NULL OR #{ends_at_attr} #{ends_at_sign} :starts_at_value)"
-    query << "(#{starts_at_attr} IS NULL OR #{starts_at_attr} #{starts_at_sign} :ends_at_value)"
-    query.join(' AND ')
+    query << "(#{ends_at_attr} IS NULL OR #{ends_at_attr} #{ends_at_sign} :starts_at_value)" if sql_values.key?(:starts_at_value)
+    query << "(#{starts_at_attr} IS NULL OR #{starts_at_attr} #{starts_at_sign} :ends_at_value)" if sql_values.key?(:ends_at_value)
+    query.empty? ? '1 = 1' : query.join(' AND ')
   end
 
   # Add attributes and values to sql conditions.

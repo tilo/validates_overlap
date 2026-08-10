@@ -22,5 +22,27 @@ describe NumberRange do
       expect(range).to be_valid
       expect(range.errors[:range_start]).to be_empty
     end
+
+    context 'with open-ended (nil) endpoints' do
+      it 'is not valid if an upward-open range overlaps' do
+        range = NumberRange.new(range_start: 150, range_end: nil)
+        expect(range).not_to be_valid
+      end
+
+      it 'is not valid if a downward-open range overlaps' do
+        range = NumberRange.new(range_start: nil, range_end: 150)
+        expect(range).not_to be_valid
+      end
+
+      it 'is valid if an upward-open range starts above the existing range' do
+        range = NumberRange.new(range_start: 200, range_end: nil)
+        expect(range).to be_valid
+      end
+
+      it 'is valid if a downward-open range ends below the existing range' do
+        range = NumberRange.new(range_start: nil, range_end: 99)
+        expect(range).to be_valid
+      end
+    end
   end
 end
