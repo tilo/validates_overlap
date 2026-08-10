@@ -10,6 +10,25 @@ It also supports scoped validation (per user, room, resource, etc.), open-ended 
 
 The range columns don't have to be dates or times: any orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions).
 
+## ⚠️ Note: cyclic domains can not be validated for overlap
+
+Overlap validation requires a linear domain: every range must satisfy `start <= end`. On a cyclic (wrap-around) domain, every pair of values denotes *some* valid range (`11:00..10:00` is simply the 23-hour complement of `10:00..11:00`), so a wraparound range is indistinguishable from accidentally swapped fields — no validation can tell intent from typo. This is a mathematical property of circular domains, not an implementation gap.
+
+The validator therefore refuses `:time` range columns and raises `OverlapValidator::UnsupportedColumnType` — use datetime columns instead, or split windows that cross midnight into two records.
+
+But cyclicity is a property of the domain, not the column type — user-encoded cyclic domains hide inside perfectly linear columns, where no guard can see them:
+
+- day-of-week as integer (0..6): a Friday-to-Monday shift range `5..1` wraps — same pathology as `22:00..02:00`, stored in an innocent `:integer` column
+- month numbers (1..12): a November-to-February season range `11..2`
+- ISO week numbers: a range from week 52 to week 2 across New Year
+- angles / compass headings (0..360): a heading sector `350..10`
+- hour-of-day as integer — people re-implement `:time` in an int column all the time
+- time-of-day (24-hour clock values without a date component)
+
+If your domain is cyclic, the validator will silently give wrong answers for wrapping ranges. Restructure the data instead: split wrapping ranges into two linear records, or lift the values into a linear domain (e.g. datetime instead of time-of-day).
+
+To catch inverted ranges loudly instead of silently (for any column type), pair the overlap validation with an order check on your model, e.g. `validates :ends_at, comparison: { greater_than: :starts_at }`.
+
 ## Compatibility
 
 Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
@@ -71,8 +90,6 @@ validates :starts_at, :ends_at, :overlap => {:start_shift => 2.days, :end_shift 
 #### non-date ranges
 
 The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too, and the shifts work for numeric ranges as well (e.g. an integer gap or overlap tolerance). The test suite covers `date`, `datetime`, `timestamp`, `integer`, `decimal`, and `string` range columns.
-
-**Ranges must be linear (`start <= end`) — cyclic/wraparound semantics are fundamentally incompatible with this validator.** On a circular domain such as time-of-day, every pair of values denotes *some* valid range (`11:00..10:00` is simply the 23-hour complement of `10:00..11:00`), so a wraparound window is indistinguishable from accidentally swapped fields — no validation can tell intent from typo. The validator therefore refuses `:time` range columns and raises `OverlapValidator::UnsupportedColumnType` — use datetime columns instead, or split windows that cross midnight into two records. To catch inverted ranges loudly instead of silently (for any column type), pair the overlap validation with an order check on your model, e.g. `validates :ends_at, comparison: { greater_than: :starts_at }`.
 
 ```ruby
 class TicketBlock < ActiveRecord::Base
