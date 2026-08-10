@@ -35,12 +35,6 @@ class CreateTypedRanges < ActiveRecord::Migration[6.0]
       t.timestamps
     end
 
-    # pure time-of-day ranges (t.time — no date part, e.g. daily opening hours)
-    create_table :daily_windows do |t|
-      t.time :starts_at
-      t.time :ends_at
-      t.timestamps
-    end
   end
 
   def self.down
@@ -49,6 +43,5 @@ class CreateTypedRanges < ActiveRecord::Migration[6.0]
     drop_table :appointments
     drop_table :maintenance_windows
     drop_table :price_bands
-    drop_table :daily_windows
   end
 end
