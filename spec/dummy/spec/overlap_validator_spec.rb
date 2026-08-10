@@ -29,4 +29,18 @@ describe OverlapValidator do
       expect(meeting.errors[:optional_key_2]).to eq ['Message content']
     end
   end
+
+  context 'initialization' do
+    it 'raises if the time range is defined by only 1 attribute' do
+      expect do
+        OverlapValidator.new(attributes: [:starts_at])
+      end.to raise_error(RuntimeError, 'Validation of time range must be defined by 2 attributes')
+    end
+
+    it 'raises if the time range is defined by more than 2 attributes' do
+      expect do
+        OverlapValidator.new(attributes: [:starts_at, :ends_at, :deadline_at])
+      end.to raise_error(RuntimeError, 'Validation of time range must be defined by 2 attributes')
+    end
+  end
 end
