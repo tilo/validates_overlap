@@ -2,26 +2,32 @@
 
 ![Gem Version](https://img.shields.io/gem/v/validates_overlap) [![RSpec](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml/badge.svg)](https://github.com/tilo/validates_overlap/actions/workflows/ruby.yml) [![codecov](https://codecov.io/gh/tilo/validates_overlap/branch/main/graph/badge.svg)](https://app.codecov.io/gh/tilo/validates_overlap/tree/main) [![Downloads](https://img.shields.io/gem/dt/validates_overlap)](https://rubygems.org/gems/validates_overlap) [![RubyGems](https://img.shields.io/badge/RubyGems-validates__overlap-brightgreen?logo=rubygems&logoColor=white)](https://rubygems.org/gems/validates_overlap) [![Ruby Toolbox](https://img.shields.io/badge/Ruby%20Toolbox-validates__overlap-brightgreen)](https://www.ruby-toolbox.com/projects/validates_overlap)
 
-`validates_overlap` provides an ActiveRecord validator for resources that must not overlap in time. Think rentals, meetings, bookings, work shifts, or assignments where the same resource cannot be assigned to multiple people or entities during overlapping time periods.
+`validates_overlap` provides an ActiveRecord validator for resources that must not overlap, e.g. in datetime. Think rentals, meetings, bookings, work shifts, or assignments where the same resource cannot be assigned to multiple people or entities during overlapping time periods. But it also works for other domains than datetime (see below).
 
-You specify two attributes defining a time range, such as `starts_at` and `ends_at`, and the validator checks with a single SQL query whether another record overlaps that range — no records are loaded for the comparison. If one does, the record receives a normal validation error.
+You specify two attributes defining a datetime range, such as `starts_at` and `ends_at`, and the validator checks with a single SQL query whether another record overlaps that range — no records are loaded for the comparison. If one does, the record receives a normal validation error.
 
 It also supports scoped validation (per user, room, resource, etc.), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at their boundaries (`exclude_edges`), required gaps between ranges or a tolerated amount of overlap (`start_shift` / `end_shift`), associations, and retrieving the conflicting records.
 
-The range columns don't have to be dates or times: any orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions).
+The range columns don't have to be dates or times: any linearly orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions).
 
-## ⚠️ Note: cyclic domains can not be validated for overlap
+## Note: Other Domains
 
-Overlap validation requires a linear domain: every range must satisfy `start <= end`. On a cyclic (wrap-around) domain, every pair of values denotes *some* valid range (`11:00..10:00` is simply the 23-hour complement of `10:00..11:00`), so a wraparound range is indistinguishable from accidentally swapped fields — no validation can tell intent from typo. This is a mathematical property of circular domains, not an implementation gap.
+Other domains / types can be checked for overlap, as long as they can be compared linearly.
+e.g. The overlap check runs on plain SQL comparisons, so any linearly orderable column type works — for example integer ranges (no two records may claim overlapping number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too, and the shifts work for numeric ranges as well (e.g. an integer gap or overlap tolerance). The test suite covers `date`, `datetime`, `timestamp`, `integer`, `decimal`, and `string` range columns.
+
+## ⚠️ Note: Cyclic Domains can NOT be validated for overlap
+
+Overlap validation requires a linear domain: every range must satisfy `start <= end`. On a cyclic (wrap-around) domain, like time, every pair of values denotes *some* valid range (`11:00..10:00` is simply the 23-hour complement of `10:00..11:00`), so a wraparound range is indistinguishable from accidentally swapped fields — no validation can tell intent from typo. This is a mathematical property of circular domains, not an implementation gap.
 
 The validator therefore refuses `:time` range columns and raises `OverlapValidator::UnsupportedColumnType` — use datetime columns instead, or split windows that cross midnight into two records.
 
-But cyclicity is a property of the domain, not the column type — user-encoded cyclic domains hide inside perfectly linear columns, where no guard can see them:
+But cyclicity is a property of the domain, not the column type — ⚠️ user-encoded cyclic domains hide inside perfectly linear columns, where no guard can see them:
 
 - day-of-week as integer (0..6): a Friday-to-Monday shift range `5..1` wraps — same pathology as `22:00..02:00`, stored in an innocent `:integer` column
 - month numbers (1..12): a November-to-February season range `11..2`
 - ISO week numbers: a range from week 52 to week 2 across New Year
 - angles / compass headings (0..360): a heading sector `350..10`
+- longitude (−180°..+180°)
 - hour-of-day as integer — people re-implement `:time` in an int column all the time
 - time-of-day (24-hour clock values without a date component)
 
@@ -29,7 +35,7 @@ If your domain is cyclic, the validator will silently give wrong answers for wra
 
 To catch inverted ranges loudly instead of silently (for any column type), pair the overlap validation with an order check on your model, e.g. `validates :ends_at, comparison: { greater_than: :starts_at }`.
 
-## Compatibility
+## Ruby / Rails Compatibility
 
 Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
 
@@ -111,7 +117,7 @@ validates :starts_at, :ends_at, :overlap => {:message_title => [:start_at, :end_
 
 #### with complicated relations
 
-Example describes valildatation of user, positions and time slots.
+Example describes validation of user, positions and time slots.
 User can't be assigned 2 times on position which is under time slot with time overlap.
 
 ```ruby
