@@ -35,6 +35,13 @@ class CreateTypedRanges < ActiveRecord::Migration[6.0]
       t.timestamps
     end
 
+    # t.time columns — exists ONLY to assert that the validator REJECTS them
+    # (time-of-day is a cyclic domain, fundamentally incompatible — see README)
+    create_table :daily_windows do |t|
+      t.time :starts_at
+      t.time :ends_at
+      t.timestamps
+    end
   end
 
   def self.down
@@ -43,5 +50,6 @@ class CreateTypedRanges < ActiveRecord::Migration[6.0]
     drop_table :appointments
     drop_table :maintenance_windows
     drop_table :price_bands
+    drop_table :daily_windows
   end
 end

@@ -3,6 +3,10 @@ require 'active_support/i18n'
 I18n.load_path << File.dirname(__FILE__) + '/locale/en.yml'
 
 class OverlapValidator < ActiveModel::EachValidator
+  # Raised when a range attribute uses a column type the validator cannot
+  # operate on (e.g. :time — a cyclic domain, see README)
+  class UnsupportedColumnType < ArgumentError; end
+
   def initialize(args)
     attributes_are_range(args[:attributes])
 
@@ -13,6 +17,7 @@ class OverlapValidator < ActiveModel::EachValidator
   # validation of that class (including concurrent ones) — so the query being
   # built must never be stored on the validator itself (issue #50)
   def validate(record)
+    reject_unsupported_column_types(record)
     relation, sql_conditions, sql_values = initialize_query(record, options)
     if overlapped_exists?(relation, sql_conditions, sql_values)
       if options[:load_overlapped]
@@ -34,6 +39,21 @@ class OverlapValidator < ActiveModel::EachValidator
   end
 
   protected
+
+  # Time-of-day is a cyclic domain: every pair of values denotes some valid
+  # range there, so wraparound intent is indistinguishable from accidentally
+  # swapped fields — refuse loudly instead of answering wrong (see README).
+  # Checked at validate time, not at class-definition time, because column
+  # metadata must not be touched while migrations may still be pending.
+  def reject_unsupported_column_types(record)
+    return unless record.class.respond_to?(:columns_hash)
+    attributes.each do |attr|
+      next if attr.to_s.include?('.')
+      column = record.class.columns_hash[attr.to_s]
+      next unless column && column.type == :time
+      raise UnsupportedColumnType, "#{record.class.name}##{attr} is a :time column; time-of-day is a cyclic domain and cannot be validated for overlap — use datetime columns, or split ranges that cross midnight (see README)"
+    end
+  end
 
   # Build the complete overlap query for this record.
   # return array in form [relation, sql_conditions, sql_values]

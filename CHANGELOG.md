@@ -2,7 +2,7 @@
 
 ## 1.2.0 (2026-08-10)
 
-RSpec tests: **85 → 125** (+40 tests)
+RSpec tests: **85 → 126** (+41 tests)
 
 ### Bug Fixes
 
@@ -15,6 +15,7 @@ RSpec tests: **85 → 125** (+40 tests)
 
   - documented in the README that `start_shift` / `end_shift` work in both directions: widening the range enforces a minimum gap, shrinking it tolerates a specified amount of overlap — now locked in by specs
   - the overlap check works on any orderable column type — now covered by specs for date, datetime, timestamp, integer, decimal, and string range columns (including open-ended ranges and integer gap/tolerance shifts) and documented in the README ("non-date ranges")
+  - `:time` range columns now raise `OverlapValidator::UnsupportedColumnType` — time-of-day is a cyclic domain, where a wraparound window is indistinguishable from accidentally swapped fields; the validator refuses loudly instead of answering wrong (see the README note)
   - test coverage: real UUID/string primary key test restored (lost in a 2019 refactor), new tests for `:scoped_model`, literal scope values, and the two-attributes requirement; the long-disabled endless-objects test was fixed and re-enabled — the suite has no pending tests
 
 ### Internal
