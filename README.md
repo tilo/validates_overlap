@@ -70,7 +70,7 @@ validates :starts_at, :ends_at, :overlap => {:start_shift => 2.days, :end_shift 
 
 #### non-date ranges
 
-The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too, and the shifts work for numeric ranges as well (e.g. an integer gap or overlap tolerance). The test suite covers `date`, `datetime`, `timestamp`, `integer`, `decimal`, and `string` range columns.
+The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too, and the shifts work for numeric ranges as well (e.g. an integer gap or overlap tolerance). The test suite covers `date`, `datetime`, `timestamp`, `time`, `integer`, `decimal`, and `string` range columns. Note for pure time-of-day columns (`t.time`, e.g. daily opening hours): a window crossing midnight (22:00..02:00) cannot be expressed as a single time range — split it into two ranges, or use datetime columns.
 
 ```ruby
 class TicketBlock < ActiveRecord::Base
