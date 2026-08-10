@@ -1,5 +1,6 @@
 require "#{File.dirname(__FILE__)}/../../../spec_helper"
 
+# Part of the range-type coverage — see the note in number_range_spec.rb
 describe NameRange do
   context 'Validation of string ranges' do
     before do

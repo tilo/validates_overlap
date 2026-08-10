@@ -1,5 +1,6 @@
 require "#{File.dirname(__FILE__)}/../../../spec_helper"
 
+# Part of the range-type coverage — see the note in number_range_spec.rb
 describe Appointment do
   context 'Validation of datetime ranges (time-of-day precision)' do
     before do

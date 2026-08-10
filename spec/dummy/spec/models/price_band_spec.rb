@@ -1,5 +1,6 @@
 require "#{File.dirname(__FILE__)}/../../../spec_helper"
 
+# Part of the range-type coverage — see the note in number_range_spec.rb
 describe PriceBand do
   context 'Validation of decimal ranges' do
     before do
@@ -21,6 +22,18 @@ describe PriceBand do
       band = PriceBand.new(range_start: BigDecimal('10.00'), range_end: BigDecimal('19.99'))
       expect(band).to be_valid
       expect(band.errors[:range_start]).to be_empty
+    end
+
+    context 'with open-ended (nil) endpoints' do
+      it 'is not valid if an upward-open band overlaps' do
+        band = PriceBand.new(range_start: BigDecimal('5.00'), range_end: nil)
+        expect(band).not_to be_valid
+      end
+
+      it 'is valid if an upward-open band starts above the existing band' do
+        band = PriceBand.new(range_start: BigDecimal('10.00'), range_end: nil)
+        expect(band).to be_valid
+      end
     end
   end
 end

@@ -8,7 +8,7 @@ You specify two attributes defining a time range, such as `starts_at` and `ends_
 
 It also supports scoped validation (per user, room, resource, etc.), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at their boundaries (`exclude_edges`), required gaps between ranges or a tolerated amount of overlap (`start_shift` / `end_shift`), associations, and retrieving the conflicting records.
 
-The range columns don't have to be dates or times: any orderable column type works, such as integer ranges (ticket number blocks) or string ranges (alphabetical partitions).
+The range columns don't have to be dates or times: any orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions).
 
 ## Compatibility
 
@@ -70,7 +70,7 @@ validates :starts_at, :ends_at, :overlap => {:start_shift => 2.days, :end_shift 
 
 #### non-date ranges
 
-The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks) or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too.
+The overlap check runs on plain SQL comparisons, so any orderable column type works — for example integer ranges (no two records may claim overlapping number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). A nil endpoint means the range is open-ended on that side, for these types too, and the shifts work for numeric ranges as well (e.g. an integer gap or overlap tolerance). The test suite covers `date`, `datetime`, `timestamp`, `integer`, `decimal`, and `string` range columns.
 
 ```ruby
 class TicketBlock < ActiveRecord::Base
