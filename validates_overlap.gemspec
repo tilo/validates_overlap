@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.version = ValidatesOverlap::VERSION
 
   s.authors = ['Robin Bortlik', 'Tilo Sloboda']
-  s.description = 'It can be useful when you are developing some app where you will work with meetings, events etc.'
+  s.description = 'Adds ActiveRecord validations that prevent overlapping date/time ranges — bookings, reservations, meetings, shifts. One SQL query; supports scoping and open-ended ranges'
   s.email = ['robinbortlik@gmail.com', 'tilo.sloboda@gmail.com']
   s.extra_rdoc_files = [
     'README.md'
