@@ -43,8 +43,8 @@ describe Meeting do
 
 
     context 'Validation of endless objects' do
-      xit 'with overlap object' do
-        FactoryBot.create(:meeting)
+      it 'with overlap object' do
+        FactoryBot.create(:meeting, starts_at: '2011-01-05'.to_date, ends_at: nil)
         meeting = FactoryBot.build(:meeting, starts_at: '2011-01-05'.to_date, ends_at: '2011-01-08'.to_date)
         expect(meeting).not_to be_valid
         meeting = FactoryBot.build(:meeting, starts_at: '2012-01-05'.to_date, ends_at: '2012-01-08'.to_date)
