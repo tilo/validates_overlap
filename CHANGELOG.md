@@ -2,15 +2,19 @@
 
 ## 1.2.0 (2026-08-10)
 
-RSpec tests: **85 → 88** (+3 tests)
+RSpec tests: **85 → 102** (+17 tests)
 
 ### Bug Fixes
 
   - the validator is now stateless and thread-safe — fixes [Issue #50](https://github.com/tilo/validates_overlap/issues/50): concurrent validations of the same model class could corrupt each other's query, because Rails shares one validator instance per class and the query lived on it as instance state (intermittent `ActiveRecord::PreparedStatementInvalid`, or silently wrong validation results). Thanks to [Jorge Santos](https://github.com/jsantos) for the report
+  - string range columns raised `TypeError` because a default shift of `0` was added even when no shift was configured — shifts are now only applied when set
+  - the record's primary key is now passed to the database as a bind value when a persisted record is excluded from the comparison — it was interpolated into the SQL, which broke string keys containing a quote
 
 ### Improvements
 
   - documented in the README that `start_shift` / `end_shift` work in both directions: widening the range enforces a minimum gap, shrinking it tolerates a specified amount of overlap — now locked in by specs
+  - the overlap check works on any orderable column type, now covered by specs for integer and string ranges
+  - test coverage: real UUID/string primary key test restored (lost in a 2019 refactor), new tests for `:scoped_model`, literal scope values, and the two-attributes requirement; the long-disabled endless-objects test was fixed and re-enabled — the suite has no pending tests
 
 ### Internal
 
