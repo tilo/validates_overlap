@@ -2,13 +2,18 @@
 
 ## 1.3.0 (UNRELEASED)
 
-RSpec tests: **126 → 164** (+38 tests)
+RSpec tests: **126 → 177** (+51 tests)
 
 ### New Features
 
+  - `record.overlapping_records`, defined on every model with an overlap validation: freshly queries the conflicting records on demand and returns an `ActiveRecord::Relation` — always current, and no records are loaded until the result is used
   - `add_overlap_constraint` / `remove_overlap_constraint` migration helpers (PostgreSQL): generate a database-level exclusion constraint that closes the check-then-act race no validation can close — the range type is inferred from the column types, scope columns are compared with equality, and the edge semantics mirror the validator's; raises `NotImplementedError` on other adapters
   - `ValidatesOverlap::RescueExclusionViolation` (opt-in model concern): turns the constraint violation from the race window into a normal validation failure — `save` returns false with the overlap error set, `save!` raises `ActiveRecord::RecordInvalid`
   - the test suite runs against SQLite, PostgreSQL (`DB=postgres`, including the PostgreSQL-only specs in `spec_pg/`), and MySQL (`DB=mysql`), with CI jobs for all three adapters and an allowed-failure lane against rails main
+
+### Deprecations
+
+  - `load_overlapped: true` is deprecated, removal in 2.0 — it wrote `@overlapped_records` into the record from the outside, kept stale results after re-validation, and loaded the records during every validation; use `record.overlapping_records` instead
 
 ## 1.2.0 (2026-08-11)
 

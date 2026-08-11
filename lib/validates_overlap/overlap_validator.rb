@@ -9,8 +9,22 @@ class OverlapValidator < ActiveModel::EachValidator
 
   def initialize(args)
     attributes_are_range(args[:attributes])
+    model_class = args[:class]
 
     super
+
+    # defines record.overlapping_records on the validated model
+    model_class.include(ValidatesOverlap::OverlappingRecords) if model_class
+    if options[:load_overlapped]
+      ValidatesOverlap.deprecator.warn('load_overlapped is deprecated and will be removed in validates_overlap 2.0 — use record.overlapping_records instead')
+    end
+  end
+
+  # Build and return the overlap query for the given record — used by
+  # ValidatesOverlap::OverlappingRecords#overlapping_records
+  def overlapping_records_for(record)
+    relation, sql_conditions, sql_values = initialize_query(record, options)
+    get_overlapped(relation, sql_conditions, sql_values)
   end
 
   # NOTE: Rails registers ONE validator instance per model class, shared by every

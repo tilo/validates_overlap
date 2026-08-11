@@ -209,19 +209,17 @@ class ActiveMeeting < ActiveRecord::Base
 end
 ```
 
-#### Overlapped records
-If you need to know what records are in conflict, pass the `{load_overlapped: true }` as validator option and validator will set instance variable `@overlapped_records` to the validated object.
+#### Overlapping records
+
+If you need to know which records are in conflict, call `overlapping_records` — it is defined on every model with an overlap validation. It runs the query when called and returns an `ActiveRecord::Relation`, so no records are loaded until you use the result:
 
 ```ruby
-class ActiveMeeting < ActiveRecord::Base
-  validates :starts_at, :ends_at, :overlap => {:load_overlapped => true}
-
-  def overlapped_records
-    @overlapped_records || []
-  end
-end
-
+meeting = Meeting.new(starts_at: '2026-09-01', ends_at: '2026-09-03')
+meeting.overlapping_records          # => the conflicting meetings
+meeting.overlapping_records.count    # => runs a COUNT query, loads no records
 ```
+
+The former mechanism — `overlap: { load_overlapped: true }`, which set `@overlapped_records` on the record and required a hand-written accessor — still works but is deprecated and will be removed in 2.0: it kept stale results after re-validation and loaded the records during every validation.
 
 ## Maintainership
 
