@@ -21,6 +21,7 @@ Gem::Specification.new do |s|
     'source_code_uri' => "https://github.com/tilo/validates_overlap/tree/v#{s.version}",
     'bug_tracker_uri' => 'https://github.com/tilo/validates_overlap/issues',
     'changelog_uri' => 'https://github.com/tilo/validates_overlap/blob/main/CHANGELOG.md',
+    'documentation_uri' => 'https://www.rubydoc.info/gems/validates_overlap',
     'rubygems_mfa_required' => 'true'
   }
 
@@ -31,7 +32,6 @@ Gem::Specification.new do |s|
   s.add_development_dependency 'factory_bot_rails'
   s.add_development_dependency 'pry'
   s.add_development_dependency 'rails'
-  s.add_development_dependency 'rb-readline'
   s.add_development_dependency 'rspec-rails'
   s.add_development_dependency 'rubocop'
   s.add_development_dependency 'simplecov'
