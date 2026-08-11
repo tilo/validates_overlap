@@ -1,6 +1,6 @@
 ### Contents
 
-  * [Introduction](./_introduction.md)
+  * [Examples and Introduction](./_introduction.md)
   * [**Option Reference**](./options.md)
   * [Range Types and Domains](./range_types.md)
   * [PostgreSQL: Exclusion Constraints](./postgresql.md)
@@ -40,4 +40,4 @@ Attribute names may be plain column names, or `"table_name.column_name"` strings
 
 ----------------
 
-PREVIOUS: [Introduction](./_introduction.md) | NEXT: [Range Types and Domains](./range_types.md) | UP: [README](../README.md)
+PREVIOUS: [Examples and Introduction](./_introduction.md) | NEXT: [Range Types and Domains](./range_types.md) | UP: [README](../README.md)

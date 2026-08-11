@@ -1,6 +1,6 @@
 ### Contents
 
-  * [Introduction](./_introduction.md)
+  * [Examples and Introduction](./_introduction.md)
   * [Option Reference](./options.md)
   * [**Range Types and Domains**](./range_types.md)
   * [PostgreSQL: Exclusion Constraints](./postgresql.md)
