@@ -1,2 +1,4 @@
 require_relative 'validates_overlap/version'
 require_relative 'validates_overlap/overlap_validator'
+require_relative 'validates_overlap/migration_helpers'
+require_relative 'validates_overlap/rescue_exclusion_violation'
