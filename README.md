@@ -39,7 +39,30 @@ To catch inverted ranges loudly instead of silently (for any column type), pair 
 
 Like Rails' `validates_uniqueness_of`, this validation is a check followed by a separate insert: two concurrent requests can BOTH run the overlap check, BOTH see no conflict, and BOTH save. No application-level validation can close that race — the validation exists to give users friendly error messages, not to guarantee correctness under concurrent writes.
 
-For a hard guarantee, add a database-level exclusion constraint (PostgreSQL):
+For a hard guarantee, add a database-level exclusion constraint (PostgreSQL). Since 1.3.0 the gem ships migration helpers that generate it — the range type is inferred from your column types, and the options mirror the validator's:
+
+```ruby
+class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
+  def up
+    add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
+  end
+
+  def down
+    remove_overlap_constraint :meetings
+  end
+end
+```
+
+And to turn the constraint violation from the race window into a normal validation failure (instead of an exception bubbling up), include the companion concern in your model — `save` then returns false with the overlap error set, and `save!` raises `ActiveRecord::RecordInvalid`:
+
+```ruby
+class Meeting < ActiveRecord::Base
+  validates :starts_at, :ends_at, overlap: { scope: :user_id }
+  include ValidatesOverlap::RescueExclusionViolation
+end
+```
+
+The generated constraint is equivalent to this hand-written migration:
 
 ```ruby
 class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
@@ -47,7 +70,7 @@ class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
     enable_extension 'btree_gist'   # needed to mix scalar columns (=) with ranges (&&)
     execute <<~SQL
       ALTER TABLE meetings
-        ADD CONSTRAINT no_overlapping_meetings
+        ADD CONSTRAINT meetings_no_overlap
         EXCLUDE USING gist (
           user_id WITH =,
           tsrange(starts_at, ends_at, '[]') WITH &&
@@ -56,7 +79,7 @@ class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
   end
 
   def down
-    execute 'ALTER TABLE meetings DROP CONSTRAINT no_overlapping_meetings'
+    execute 'ALTER TABLE meetings DROP CONSTRAINT meetings_no_overlap'
   end
 end
 ```
