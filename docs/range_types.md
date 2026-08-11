@@ -49,4 +49,4 @@ To catch inverted ranges loudly instead of silently (for any column type), pair 
 
 ----------------
 
-PREVIOUS: [Option Reference](./options.md) | NEXT: [PostgreSQL: Exclusion Constraints](./postgresql.md) | UP: [README](../README.md)
+UP: [README](../README.md) | PREVIOUS: [Option Reference](./options.md) | NEXT: [PostgreSQL: Exclusion Constraints](./postgresql.md)

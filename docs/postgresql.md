@@ -75,4 +75,4 @@ Keep the validation even with the constraint in place: the validator produces fr
 
 ----------------
 
-PREVIOUS: [Range Types and Domains](./range_types.md) | UP: [README](../README.md)
+UP: [README](../README.md) | PREVIOUS: [Range Types and Domains](./range_types.md)

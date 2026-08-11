@@ -40,4 +40,4 @@ Attribute names may be plain column names, or `"table_name.column_name"` strings
 
 ----------------
 
-PREVIOUS: [Examples and Introduction](./_introduction.md) | NEXT: [Range Types and Domains](./range_types.md) | UP: [README](../README.md)
+UP: [README](../README.md) | PREVIOUS: [Examples and Introduction](./_introduction.md) | NEXT: [Range Types and Domains](./range_types.md)

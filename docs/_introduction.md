@@ -115,4 +115,4 @@ validates :ends_at, comparison: { greater_than: :starts_at }
 
 ----------------
 
-NEXT: [Option Reference](./options.md) | UP: [README](../README.md)
+UP: [README](../README.md) | NEXT: [Option Reference](./options.md)
