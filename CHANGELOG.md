@@ -17,6 +17,7 @@ RSpec tests: **85 → 126** (+41 tests)
   - the overlap check works on any linearly orderable column type — now covered by specs for date, datetime, timestamp, integer, decimal, and string range columns (including open-ended ranges and integer gap/tolerance shifts) and documented in the README ("non-date ranges")
   - `:time` range columns now raise `OverlapValidator::UnsupportedColumnType` — time-of-day is a cyclic domain, where a wraparound window is indistinguishable from accidentally swapped fields; the validator refuses loudly instead of answering wrong (see the README note for cyclic domains)
   - test coverage: real UUID/string primary key test restored (lost in a 2019 refactor), new tests for `:scoped_model`, literal scope values, and the two-attributes requirement; the long-disabled endless-objects test was fixed and re-enabled — the suite has no pending tests
+  - README: documented that validation alone cannot prevent double-booking under concurrent writes (check-then-act race, same as `validates_uniqueness_of`), with a PostgreSQL exclusion-constraint recipe that mirrors the gem's scope, open-ended, and edge semantics for a hard database-level guarantee
 
 ### Internal
 

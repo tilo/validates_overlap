@@ -35,6 +35,41 @@ If your domain is cyclic, the validator will silently give wrong answers for wra
 
 To catch inverted ranges loudly instead of silently (for any column type), pair the overlap validation with an order check on your model, e.g. `validates :ends_at, comparison: { greater_than: :starts_at }`.
 
+## ⚠️ Note: Validation alone can NOT prevent double-booking under concurrent writes
+
+Like Rails' `validates_uniqueness_of`, this validation is a check followed by a separate insert: two concurrent requests can BOTH run the overlap check, BOTH see no conflict, and BOTH save. No application-level validation can close that race — the validation exists to give users friendly error messages, not to guarantee correctness under concurrent writes.
+
+For a hard guarantee, add a database-level exclusion constraint (PostgreSQL):
+
+```ruby
+class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
+  def up
+    enable_extension 'btree_gist'   # needed to mix scalar columns (=) with ranges (&&)
+    execute <<~SQL
+      ALTER TABLE meetings
+        ADD CONSTRAINT no_overlapping_meetings
+        EXCLUDE USING gist (
+          user_id WITH =,
+          tsrange(starts_at, ends_at, '[]') WITH &&
+        )
+    SQL
+  end
+
+  def down
+    execute 'ALTER TABLE meetings DROP CONSTRAINT no_overlapping_meetings'
+  end
+end
+```
+
+How the pieces map to this gem's options:
+
+- `user_id WITH =` mirrors `scope:` — records only conflict within the same scope; add one `WITH =` line per scope column, or omit for unscoped validation.
+- `tsrange(starts_at, ends_at, '[]')` treats a `NULL` start or end as open-ended — the same semantics as this gem. The `'[]'` makes both edges inclusive, matching the gem's default where touching edges conflict; use the default `'[)'` bounds to match `exclude_edges: 'ends_at'`. Use `tstzrange` for timezone-aware columns, `daterange` for dates, `int4range` / `numrange` for numeric ranges.
+- When the constraint fires, ActiveRecord raises `ActiveRecord::StatementInvalid` (wrapping `PG::ExclusionViolation`) — rescue it around the save and treat it like a failed validation.
+- MySQL and SQLite have no exclusion constraints; there the validation is best-effort, exactly like `validates_uniqueness_of` without a unique index.
+
+Keep the validation even with the constraint in place: the validator produces friendly per-attribute error messages for the normal case, and the constraint catches the rare race the validator cannot.
+
 ## Ruby / Rails Compatibility
 
 Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
