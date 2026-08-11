@@ -8,8 +8,9 @@ You specify two attributes defining a datetime range, such as `starts_at` and `e
 
 It also supports scoped validation (per user, room, resource, etc.), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at their boundaries (`exclude_edges`), required gaps between ranges or a tolerated amount of overlap (`start_shift` / `end_shift`), associations, and retrieving the conflicting records.
 
-The range columns don't have to be dates or times: any linearly orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions).
+## Quick Start
 
+<<<<<<< Updated upstream
 ## Note: Other Domains
 
 Other domains / types can be checked for overlap, as long as they can be compared linearly.
@@ -59,16 +60,38 @@ class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
     execute 'ALTER TABLE meetings DROP CONSTRAINT no_overlapping_meetings'
   end
 end
+=======
+Add to your gemfile
+
+```ruby
+gem 'validates_overlap'
 ```
 
-How the pieces map to this gem's options:
+In your model
 
-- `user_id WITH =` mirrors `scope:` — records only conflict within the same scope; add one `WITH =` line per scope column, or omit for unscoped validation.
-- `tsrange(starts_at, ends_at, '[]')` treats a `NULL` start or end as open-ended — the same semantics as this gem. The `'[]'` makes both edges inclusive, matching the gem's default where touching edges conflict; use the default `'[)'` bounds to match `exclude_edges: 'ends_at'`. Use `tstzrange` for timezone-aware columns, `daterange` for dates, `int4range` / `numrange` for numeric ranges.
-- When the constraint fires, ActiveRecord raises `ActiveRecord::StatementInvalid` (wrapping `PG::ExclusionViolation`) — rescue it around the save and treat it like a failed validation.
-- MySQL and SQLite have no exclusion constraints; there the validation is best-effort, exactly like `validates_uniqueness_of` without a unique index.
+```ruby
+validates :starts_at, :ends_at, :overlap => true
 
-Keep the validation even with the constraint in place: the validator produces friendly per-attribute error messages for the normal case, and the constraint catches the rare race the validator cannot.
+# or scoped, e.g. per user:
+validates :starts_at, :ends_at, :overlap => {:scope => "user_id"}
+```
+
+All options — scopes, edge handling, gaps and tolerated overlap, custom messages, associations, retrieving the conflicting records — are described in the [Option Reference](docs/options.md).
+
+## Range Types
+
+The range columns don't have to be dates or times: any linearly orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). ⚠️ Cyclic (wrap-around) domains — time-of-day, day-of-week, month numbers, angles — can NOT be validated for overlap; the validator refuses `:time` columns outright. [Range Types and Domains](docs/range_types.md) explains both halves.
+
+## ⚠️ Concurrent Writes
+
+Validation alone can not prevent double-booking under concurrent writes: two simultaneous requests can both pass the check and both save — the same limitation as `validates_uniqueness_of`. On PostgreSQL, the gem's migration helpers generate an exclusion constraint that closes this race at the database level:
+
+```ruby
+add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
+>>>>>>> Stashed changes
+```
+
+See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL.
 
 ## Note: Add an index — the overlap check runs on every save
 
@@ -78,7 +101,7 @@ The validation runs one `EXISTS` query per save. Without a suitable index that q
 add_index :meetings, [:user_id, :starts_at, :ends_at]
 ```
 
-For unscoped validation, index the range columns alone (`[:starts_at, :ends_at]`). If you added the PostgreSQL exclusion constraint from the section above, you already have a suitable index — the constraint is backed by a GiST index that serves overlap queries. On large tables, verify with `EXPLAIN` that the query actually uses your index.
+For unscoped validation, index the range columns alone (`[:starts_at, :ends_at]`). If you added the PostgreSQL exclusion constraint, you already have a suitable index — the constraint is backed by a GiST index that serves overlap queries. On large tables, verify with `EXPLAIN` that the query actually uses your index.
 
 ## Ruby / Rails Compatibility
 
@@ -97,8 +120,9 @@ The gemspec requires `activerecord >= 6.0`. Rails 6.0 is not part of the test ma
 
 Note for MySQL users: use `DATETIME` (not `TIMESTAMP`) columns for your range attributes — MySQL's `TIMESTAMP` type cannot store dates after January 2038, which matters for long-running or far-future ranges. PostgreSQL and SQLite date/time types have no such limit.
 
-## Usage
+## Documentation
 
+<<<<<<< Updated upstream
 Add to your gemfile
 
 ```ruby
@@ -199,6 +223,12 @@ class ActiveMeeting < ActiveRecord::Base
 end
 
 ```
+=======
+  * [Examples and Introduction](docs/_introduction.md)
+  * [Option Reference](docs/options.md)
+  * [Range Types and Domains](docs/range_types.md)
+  * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
+>>>>>>> Stashed changes
 
 ## Maintainership
 
@@ -206,5 +236,3 @@ end
 Since August 2026 the gem is maintained by [Tilo Sloboda](https://github.com/tilo).
 
 A big thank you to Robin for creating this awesome gem and for the years of work he put into it. ❤️
-
-
