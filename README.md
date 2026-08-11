@@ -70,6 +70,16 @@ How the pieces map to this gem's options:
 
 Keep the validation even with the constraint in place: the validator produces friendly per-attribute error messages for the normal case, and the constraint catches the rare race the validator cannot.
 
+## Note: Add an index — the overlap check runs on every save
+
+The validation runs one `EXISTS` query per save. Without a suitable index that query is a full table scan — invisible at 1,000 rows, painful at 1,000,000. Add a composite index with your scope columns first, then the range columns:
+
+```ruby
+add_index :meetings, [:user_id, :starts_at, :ends_at]
+```
+
+For unscoped validation, index the range columns alone (`[:starts_at, :ends_at]`). If you added the PostgreSQL exclusion constraint from the section above, you already have a suitable index — the constraint is backed by a GiST index that serves overlap queries. On large tables, verify with `EXPLAIN` that the query actually uses your index.
+
 ## Ruby / Rails Compatibility
 
 Every combination below is verified on every push by the [CI matrix](https://github.com/tilo/validates_overlap/actions):
