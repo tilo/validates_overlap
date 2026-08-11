@@ -1,4 +1,5 @@
 raise 'PostgreSQL-only specs: run with DB=postgres bundle exec rspec spec_pg' unless ENV['DB'] == 'postgres'
+ENV['PG_SPECS'] = '1'
 
 require "#{File.dirname(__FILE__)}/../spec/spec_helper"
 
@@ -127,6 +128,45 @@ describe ValidatesOverlap::MigrationHelpers do
       exec_sql('INSERT INTO pg_blocks (range_start, range_end) VALUES (100, 199)')
       expect { exec_sql('INSERT INTO pg_blocks (range_start, range_end) VALUES (150, 250)') }.to raise_error(ActiveRecord::StatementInvalid)
       expect { exec_sql('INSERT INTO pg_blocks (range_start, range_end) VALUES (200, 299)') }.not_to raise_error
+    end
+
+    it 'infers daterange for date columns' do
+      connection.create_table(:pg_seasons) { |t| t.date :from_on; t.date :until_on }
+      migrate do
+        def change
+          add_overlap_constraint :pg_seasons, :from_on, :until_on
+        end
+      end
+      exec_sql("INSERT INTO pg_seasons (from_on, until_on) VALUES ('2030-01-01', '2030-03-31')")
+      expect { exec_sql("INSERT INTO pg_seasons (from_on, until_on) VALUES ('2030-03-01', '2030-05-31')") }.to raise_error(ActiveRecord::StatementInvalid)
+    ensure
+      connection.drop_table :pg_seasons, if_exists: true
+    end
+
+    it 'infers numrange for decimal columns' do
+      connection.create_table(:pg_bands) { |t| t.decimal :low, precision: 10, scale: 2; t.decimal :high, precision: 10, scale: 2 }
+      migrate do
+        def change
+          add_overlap_constraint :pg_bands, :low, :high
+        end
+      end
+      exec_sql('INSERT INTO pg_bands (low, high) VALUES (0.00, 9.99)')
+      expect { exec_sql('INSERT INTO pg_bands (low, high) VALUES (5.00, 19.99)') }.to raise_error(ActiveRecord::StatementInvalid)
+    ensure
+      connection.drop_table :pg_bands, if_exists: true
+    end
+
+    it 'raises ArgumentError for column types with no PostgreSQL range type' do
+      connection.create_table(:pg_names) { |t| t.string :range_start; t.string :range_end }
+      expect {
+        migrate do
+          def change
+            add_overlap_constraint :pg_names, :range_start, :range_end
+          end
+        end
+      }.to raise_error(ArgumentError, /cannot infer a range type/)
+    ensure
+      connection.drop_table :pg_names, if_exists: true
     end
   end
 

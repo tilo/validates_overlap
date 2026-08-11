@@ -1,4 +1,5 @@
 raise 'PostgreSQL-only specs: run with DB=postgres bundle exec rspec spec_pg' unless ENV['DB'] == 'postgres'
+ENV['PG_SPECS'] = '1'
 
 require "#{File.dirname(__FILE__)}/../spec/spec_helper"
 
@@ -67,5 +68,15 @@ describe ValidatesOverlap::RescueExclusionViolation do
     booking = overlapping_booking
     expect(booking.save).to be false
     expect(booking.errors[:starts_at]).to eq ['overlaps with another record']
+  end
+
+  it 'adds the error to :base when the model has no overlap validator' do
+    stub_const('BareBooking', Class.new(ActiveRecord::Base) do
+      self.table_name = 'pg_bookings'
+      include ValidatesOverlap::RescueExclusionViolation
+    end)
+    booking = BareBooking.new(user_id: 1, starts_at: '2030-01-01 11:00'.to_datetime, ends_at: '2030-01-01 13:00'.to_datetime)
+    expect(BareBooking.transaction(requires_new: true) { booking.save }).to be false
+    expect(booking.errors[:base]).not_to be_empty
   end
 end
