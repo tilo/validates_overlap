@@ -75,9 +75,107 @@ jobs:
           files: coverage/.resultset.json
           fail_ci_if_error: false
 
+  test_postgres:
+    runs-on: ubuntu-latest
+
+    # the CODECOV_TOKEN secret lives in this GitHub environment
+    environment: test
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: validates_overlap_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB: postgres
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v6
+      - name: setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Run tests on PostgreSQL
+        run: bundle exec rspec
+      - name: Run PostgreSQL-only specs (exclusion constraints)
+        run: bundle exec rspec spec_pg
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage/.resultset.json
+          fail_ci_if_error: false
+
+  test_mysql:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: validates_overlap_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -proot"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DB: mysql
+      MYSQL_HOST: 127.0.0.1
+      MYSQL_USER: root
+      MYSQL_PASSWORD: root
+
+    steps:
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v6
+      - name: setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Run tests on MySQL
+        run: bundle exec rspec
+
+  # early warning for upcoming Rails API changes — allowed to fail, never blocks
+  test_rails_head:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/gemfiles/rails_head.gemfile
+
+    steps:
+      - name: clone ${{ github.repository }}
+        uses: actions/checkout@v6
+      - name: setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+      - name: Run tests against rails main
+        run: bundle exec rake
+
   finish:
     runs-on: ubuntu-latest
-    needs: [ test_matrix ]
+    needs: [ test_matrix, test_postgres, test_mysql ]
     steps:
       - name: Wait for status checks
         run: echo "All Green!"
