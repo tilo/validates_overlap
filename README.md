@@ -27,6 +27,13 @@ validates :starts_at, :ends_at, :overlap => {:scope => "user_id"}
 
 All options — scopes, edge handling, gaps and tolerated overlap, custom messages, associations, retrieving the conflicting records — are described in the [Option Reference](docs/options.md).
 
+## Documentation
+
+  * [Examples and Introduction](docs/_introduction.md)
+  * [Option Reference](docs/options.md)
+  * [Range Types and Domains](docs/range_types.md)
+  * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
+
 ## Range Types
 
 The range columns don't have to be dates or times: any linearly orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). ⚠️ Cyclic (wrap-around) domains — time-of-day, day-of-week, month numbers, angles — can NOT be validated for overlap; the validator refuses `:time` columns outright. [Range Types and Domains](docs/range_types.md) explains both halves.
@@ -68,13 +75,6 @@ Every combination below is verified on every push by the [CI matrix](https://git
 The gemspec requires `activerecord >= 6.0`. Rails 6.0 is not part of the test matrix, but no incompatibilities are known. The previous version 0.8.6 was compatible with Rails 3, 4, and 5.
 
 Note for MySQL users: use `DATETIME` (not `TIMESTAMP`) columns for your range attributes — MySQL's `TIMESTAMP` type cannot store dates after January 2038, which matters for long-running or far-future ranges. PostgreSQL and SQLite date/time types have no such limit.
-
-## Documentation
-
-  * [Examples and Introduction](docs/_introduction.md)
-  * [Option Reference](docs/options.md)
-  * [Range Types and Domains](docs/range_types.md)
-  * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
 
 ## Contributing
 
