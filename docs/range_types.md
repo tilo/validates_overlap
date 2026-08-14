@@ -27,6 +27,8 @@ TicketBlock.new(number_start: 150, number_end: nil).valid?  # => false (open-end
 TicketBlock.new(number_start: 200, number_end: 299).valid?  # => true
 ```
 
+On PostgreSQL, a range can also be stored in a single native range column (`tstzrange`, `daterange`, `int4range`, …) and validated with one attribute — see [PostgreSQL: Exclusion Constraints](./postgresql.md).
+
 ## ⚠️ Cyclic Domains can NOT be validated for overlap
 
 Overlap validation requires a linear domain: every range must satisfy `start <= end`. On a cyclic (wrap-around) domain, like time, every pair of values denotes *some* valid range (`11:00..10:00` is simply the 23-hour complement of `10:00..11:00`), so a wraparound range is indistinguishable from accidentally swapped fields — no validation can tell intent from typo. This is a mathematical property of circular domains, not an implementation gap.
