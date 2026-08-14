@@ -1,5 +1,15 @@
 # ValidatesOverlap 1.x Change Log
 
+## 1.3.0 (UNRELEASED)
+
+RSpec tests: **126 → 144** (+18 tests)
+
+### New Features
+
+  - `add_overlap_constraint` / `remove_overlap_constraint` migration helpers (PostgreSQL): generate a database-level exclusion constraint that closes the check-then-act race no validation can close — the range type is inferred from the column types, scope columns are compared with equality, and the edge semantics mirror the validator's; raises `NotImplementedError` on other adapters
+  - `ValidatesOverlap::RescueExclusionViolation` (opt-in model concern): turns the constraint violation from the race window into a normal validation failure — `save` returns false with the overlap error set, `save!` raises `ActiveRecord::RecordInvalid`
+  - the test suite runs against SQLite, PostgreSQL (`DB=postgres`, including the PostgreSQL-only specs in `spec_pg/`), and MySQL (`DB=mysql`), with CI jobs for all three adapters and an allowed-failure lane against rails main
+
 ## 1.2.0 (2026-08-11)
 
 RSpec tests: **85 → 126** (+41 tests)

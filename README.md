@@ -4,7 +4,7 @@
 
 `validates_overlap` provides an ActiveRecord validator for resources that must not overlap, e.g. in datetime. Think rentals, meetings, bookings, work shifts, or assignments where the same resource cannot be assigned to multiple people or entities during overlapping time periods. But it also works for other domains than datetime (see below).
 
-You specify two attributes defining a datetime range, such as `starts_at` and `ends_at`, and the validator checks with a single SQL query whether another record overlaps that range — no records are loaded for the comparison. If one does, the record receives a normal validation error.
+You specify the attributes defining a datetime range — typically two, such as `starts_at` and `ends_at`, or on PostgreSQL a single native range column — and the validator checks with a single SQL query whether another record overlaps that range; no records are loaded for the comparison. If one does, the record receives a normal validation error.
 
 It also supports scoped validation (per user, room, resource, etc.), open-ended ranges (a nil start or end counts as extending forever), ranges that may touch at their boundaries (`exclude_edges`), required gaps between ranges or a tolerated amount of overlap (`start_shift` / `end_shift`), associations, and retrieving the conflicting records.
 
@@ -27,13 +27,6 @@ validates :starts_at, :ends_at, :overlap => {:scope => "user_id"}
 
 All options — scopes, edge handling, gaps and tolerated overlap, custom messages, associations, retrieving the conflicting records — are described in the [Option Reference](docs/options.md).
 
-## Documentation
-
-  * [Examples and Introduction](docs/_introduction.md)
-  * [Option Reference](docs/options.md)
-  * [Range Types and Domains](docs/range_types.md)
-  * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
-
 ## Range Types
 
 The range columns don't have to be dates or times: any linearly orderable column type works, such as integer ranges (ticket number blocks), decimal ranges (price bands), or string ranges (alphabetical partitions). ⚠️ Cyclic (wrap-around) domains — time-of-day, day-of-week, month numbers, angles — can NOT be validated for overlap; the validator refuses `:time` columns outright. [Range Types and Domains](docs/range_types.md) explains both halves.
@@ -46,7 +39,8 @@ Validation alone can not prevent double-booking under concurrent writes: two sim
 add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
 ```
 
-See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL.
+## ⭐ PostgreSQL Support
+Native PostgreSQL range columns are supported as well — declare the validation with the single range attribute (`validates :period, overlap: ...` on a `tstzrange` column). See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the range-column semantics, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL.
 
 ## Note: Add an index — the overlap check runs on every save
 
@@ -74,6 +68,17 @@ Every combination below is verified on every push by the [CI matrix](https://git
 The gemspec requires `activerecord >= 6.0`. Rails 6.0 is not part of the test matrix, but no incompatibilities are known. The previous version 0.8.6 was compatible with Rails 3, 4, and 5.
 
 Note for MySQL users: use `DATETIME` (not `TIMESTAMP`) columns for your range attributes — MySQL's `TIMESTAMP` type cannot store dates after January 2038, which matters for long-running or far-future ranges. PostgreSQL and SQLite date/time types have no such limit.
+
+## Documentation
+
+  * [Examples and Introduction](docs/_introduction.md)
+  * [Option Reference](docs/options.md)
+  * [Range Types and Domains](docs/range_types.md)
+  * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
+
+## Contributing
+
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the test suite against all three database adapters (SQLite, PostgreSQL, MySQL).
 
 ## Maintainership
 
