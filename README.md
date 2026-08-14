@@ -39,6 +39,7 @@ Validation alone can not prevent double-booking under concurrent writes: two sim
 add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
 ```
 
+## ⭐ PostgreSQL Support
 Native PostgreSQL range columns are supported as well — declare the validation with the single range attribute (`validates :period, overlap: ...` on a `tstzrange` column). See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the range-column semantics, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL.
 
 ## Note: Add an index — the overlap check runs on every save
@@ -74,6 +75,10 @@ Note for MySQL users: use `DATETIME` (not `TIMESTAMP`) columns for your range at
   * [Option Reference](docs/options.md)
   * [Range Types and Domains](docs/range_types.md)
   * [PostgreSQL: Exclusion Constraints](docs/postgresql.md)
+
+## Contributing
+
+Bug reports and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to run the test suite against all three database adapters (SQLite, PostgreSQL, MySQL).
 
 ## Maintainership
 
