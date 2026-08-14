@@ -16,7 +16,7 @@ describe 'range-column query building' do
     # column-type guard, which is the one reader this stub is meant for
     StubbedRangeModel.new
     allow(StubbedRangeModel).to receive(:columns_hash).and_return(
-      'period' => double('column', type: :tstzrange)
+      'period' => double('column', name: 'period', type: :tstzrange)
     )
   end
 
@@ -49,8 +49,8 @@ describe 'range-column query building' do
     end)
     TwoRangeModel.new
     allow(TwoRangeModel).to receive(:columns_hash).and_return(
-      'period' => double('column', type: :tstzrange),
-      'backup_period' => double('column', type: :tstzrange)
+      'period' => double('column', name: 'period', type: :tstzrange),
+      'backup_period' => double('column', name: 'backup_period', type: :tstzrange)
     )
     expect { TwoRangeModel.new.valid? }.to raise_error(OverlapValidator::UnsupportedColumnType, /validated on its own/)
   end
@@ -67,9 +67,9 @@ describe 'range-column query building' do
     end)
     DualValidationModel.new
     allow(DualValidationModel).to receive(:columns_hash).and_return(
-      'period' => double('column', type: :tstzrange),
-      'starts_at' => double('column', type: :datetime),
-      'ends_at' => double('column', type: :datetime)
+      'period' => double('column', name: 'period', type: :tstzrange),
+      'starts_at' => double('column', name: 'starts_at', type: :datetime),
+      'ends_at' => double('column', name: 'ends_at', type: :datetime)
     )
     existing = Meeting.create!(starts_at: '2035-03-05'.to_date, ends_at: '2035-03-08'.to_date)
     record = DualValidationModel.new(starts_at: '2035-03-06'.to_date, ends_at: '2035-03-07'.to_date)
