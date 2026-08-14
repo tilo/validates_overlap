@@ -27,7 +27,7 @@ TicketBlock.new(number_start: 150, number_end: nil).valid?  # => false (open-end
 TicketBlock.new(number_start: 200, number_end: 299).valid?  # => true
 ```
 
-On PostgreSQL, a range can also be stored in a single native range column (`tstzrange`, `daterange`, `int4range`, …) and validated with one attribute — see [PostgreSQL: Exclusion Constraints](./postgresql.md).
+On PostgreSQL, a range can also be stored in a single native range column (`tstzrange`, `daterange`, `int4range`, …) and validated with one attribute — see [PostgreSQL: Exclusion Constraints](./postgresql.md). The test suite covers native range columns of timestamp, date, and integer subtypes there.
 
 ## ⚠️ Cyclic Domains can NOT be validated for overlap
 
@@ -46,6 +46,8 @@ But cyclicity is a property of the domain, not the column type — ⚠️ user-e
 - time-of-day (24-hour clock values without a date component)
 
 If your domain is cyclic, the validator will silently give wrong answers for wrapping ranges. Restructure the data instead: split wrapping ranges into two linear records, or lift the values into a linear domain (e.g. datetime instead of time-of-day).
+
+PostgreSQL's native range types enforce the same rule at the data layer: a range whose start exceeds its end is rejected by the database itself (`range lower bound must be less than or equal to range upper bound`) — there is no wraparound range on a linear type, in this gem or in PostgreSQL.
 
 To catch inverted ranges loudly instead of silently (for any column type), pair the overlap validation with an order check on your model, e.g. `validates :ends_at, comparison: { greater_than: :starts_at }`.
 
