@@ -18,17 +18,17 @@ validates :period, overlap: { <options> }    # PostgreSQL range column (tstzrang
 
 Attribute names may be plain column names, or `"table_name.column_name"` strings when validating through an association (combined with `query_options` for the join). Usage examples for every option are on the [Introduction](./_introduction.md) page.
 
-| Option            | Values                                                       | Default        | Effect                                                                                                                                       |
-|-------------------|--------------------------------------------------------------|----------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `scope`           | column name, array of names, or hash                         | none           | Records only conflict when their scope values match — e.g. per user or per room                                                              |
-| `exclude_edges`   | attribute name or array of names                             | none           | Ranges may touch at the named edge(s); by default touching edges count as overlap                                                            |
-| `start_shift`     | duration or number                                           | none           | Added to the record's start value before the comparison — negative values widen the range (enforce a gap), positive values shrink it (tolerate overlap) |
-| `end_shift`       | duration or number                                           | none           | Added to the record's end value before the comparison — positive values widen the range, negative values shrink it                          |
-| `message_title`   | symbol, string, or array of keys                             | first attribute | Which error key(s) receive the validation error                                                                                              |
-| `message_content` | string or symbol                                             | `:overlap`     | The error message; the default translates via i18n (`en`, `es`, `pt-BR`, `ru` included)                                                     |
-| `query_options`   | hash of `{method_name => arguments}`                          | none           | Methods called on the comparison query before it runs — named scopes, `joins:`, `includes:`; use `nil` as the argument for methods without one |
-| `scoped_model`    | class name as string                                         | record's class  | Validate against another model's records — the named class is used for the comparison query                                                  |
-| `load_overlapped` | `true`                                                       | off            | DEPRECATED, removal in 2.0 — stored the conflicting records in `@overlapped_records`; use `record.overlapping_records` instead              |
+| Option            | Values                               | Default         | Effect                                                                                                                                                  |
+|-------------------|--------------------------------------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `scope`           | column name, array of names, or hash | none            | Records only conflict when their scope values match — e.g. per user or per room                                                                         |
+| `exclude_edges`   | attribute name or array of names     | none            | Ranges may touch at the named edge(s); by default touching edges count as overlap                                                                       |
+| `start_shift`     | duration or number                   | none            | Added to the record's start value before the comparison — negative values widen the range (enforce a gap), positive values shrink it (tolerate overlap) |
+| `end_shift`       | duration or number                   | none            | Added to the record's end value before the comparison — positive values widen the range, negative values shrink it                                      |
+| `message_title`   | symbol, string, or array of keys     | first attribute | Which error key(s) receive the validation error                                                                                                         |
+| `message_content` | string or symbol                     | `:overlap`      | The error message; the default translates via i18n (`en`, `es`, `pt-BR`, `ru` included)                                                                 |
+| `query_options`   | hash of `{method_name => arguments}` | none            | Methods called on the comparison query before it runs — named scopes, `joins:`, `includes:`; use `nil` as the argument for methods without one          |
+| `scoped_model`    | class name as string                 | record's class  | Validate against another model's records — the named class is used for the comparison query                                                             |
+| `load_overlapped` | `true`                               | off             | DEPRECATED, removal in 2.0 — stored the conflicting records in `@overlapped_records`; use `record.overlapping_records` instead                          |
 
 ## Notes
 

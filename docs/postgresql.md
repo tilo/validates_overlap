@@ -31,11 +31,11 @@ end
 
 Helper options:
 
-| Option          | Default              | Effect                                                                                                                       |
-|-----------------|----------------------|------------------------------------------------------------------------------------------------------------------------------|
-| `scope`         | none                 | Column(s) compared with equality, mirroring the validator's `scope`                                                          |
-| `name`          | `<table>_no_overlap` | The constraint name — pass the same `name:` to `remove_overlap_constraint` when overridden                                   |
-| `range_type`    | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`) |
+| Option          | Default              | Effect                                                                                                                                                         |
+|-----------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `scope`         | none                 | Column(s) compared with equality, mirroring the validator's `scope`                                                                                            |
+| `name`          | `<table>_no_overlap` | The constraint name — pass the same `name:` to `remove_overlap_constraint` when overridden                                                                     |
+| `range_type`    | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`)                              |
 | `exclude_edges` | `false`              | `false` = inclusive edges, touching conflicts (the validator's default); `true` = half-open ranges, touching allowed. Not applicable to the single-column form |
 
 ## Turning the violation into a validation error
