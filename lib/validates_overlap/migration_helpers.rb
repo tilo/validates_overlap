@@ -24,7 +24,8 @@ module ValidatesOverlap
     def add_overlap_constraint(table, starts_at, ends_at = nil, scope: [], name: nil, range_type: nil, exclude_edges: false)
       assert_postgresql!('add_overlap_constraint')
       scope_columns = Array(scope)
-      enable_extension 'btree_gist' unless scope_columns.empty?
+      warn_nullable_scope_columns(table, scope_columns)
+      enable_extension 'btree_gist' if !scope_columns.empty? && !connection.extension_enabled?('btree_gist')
       elements = scope_columns.map { |column| "#{connection.quote_column_name(column)} WITH =" }
       if ends_at.nil?
         raise ArgumentError, 'validates_overlap: exclude_edges is not applicable to a range column — bound inclusivity is part of the range value itself' if exclude_edges
@@ -35,19 +36,41 @@ module ValidatesOverlap
         bounds = exclude_edges ? '[)' : '[]'
         elements << "#{range_type}(#{connection.quote_column_name(starts_at)}, #{connection.quote_column_name(ends_at)}, '#{bounds}') WITH &&"
       end
-      execute <<~SQL
-        ALTER TABLE #{connection.quote_table_name(table)}
-          ADD CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}
-          EXCLUDE USING gist (#{elements.join(', ')})
-      SQL
+      if connection.respond_to?(:add_exclusion_constraint)
+        # Rails 7.1+: the recorded command is invertible, so the helper works in def change
+        add_exclusion_constraint table, elements.join(', '), using: :gist, name: overlap_constraint_name(table, name)
+      else
+        execute <<~SQL
+          ALTER TABLE #{connection.quote_table_name(table)}
+            ADD CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}
+            EXCLUDE USING gist (#{elements.join(', ')})
+        SQL
+      end
     end
 
     def remove_overlap_constraint(table, name: nil)
       assert_postgresql!('remove_overlap_constraint')
-      execute "ALTER TABLE #{connection.quote_table_name(table)} DROP CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}"
+      if connection.respond_to?(:remove_exclusion_constraint)
+        remove_exclusion_constraint table, name: overlap_constraint_name(table, name)
+      else
+        execute "ALTER TABLE #{connection.quote_table_name(table)} DROP CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}"
+      end
     end
 
     private
+
+    # NULL = NULL is not true in SQL, so the constraint never restricts rows whose
+    # scope value is NULL — while the validator DOES match NULL scope values against
+    # each other (see docs/postgresql.md). Warn so the gap is a choice, not a surprise.
+    def warn_nullable_scope_columns(table, scope_columns)
+      return if scope_columns.empty?
+      columns = connection.columns(table).index_by(&:name)
+      scope_columns.each do |scope_column|
+        column = columns[scope_column.to_s]
+        next unless column&.null
+        say "validates_overlap: scope column #{scope_column} on #{table} allows NULL — rows with a NULL #{scope_column} are NOT restricted by this constraint (NULL = NULL is not true in SQL), while the overlap validation does match NULL scope values against each other. Consider a NOT NULL constraint on #{scope_column}."
+      end
+    end
 
     def assert_range_column!(table, column_name)
       column = connection.columns(table).find { |col| col.name == column_name.to_s }

@@ -8,7 +8,7 @@ describe ValidatesOverlap::MigrationHelpers do
     Class.new do
       include ValidatesOverlap::MigrationHelpers
       attr_accessor :connection
-      attr_reader :executed, :extensions
+      attr_reader :executed, :extensions, :constraints_added, :constraints_removed, :said
 
       def enable_extension(name)
         (@extensions ||= []) << name
@@ -17,13 +17,27 @@ describe ValidatesOverlap::MigrationHelpers do
       def execute(sql)
         (@executed ||= []) << sql
       end
+
+      # in a real migration these dispatch to the connection / command recorder;
+      # the helper only calls them when the connection offers them (Rails 7.1+)
+      def add_exclusion_constraint(table, expression, **options)
+        (@constraints_added ||= []) << [table, expression, options]
+      end
+
+      def remove_exclusion_constraint(table, **options)
+        (@constraints_removed ||= []) << [table, options]
+      end
+
+      def say(message)
+        (@said ||= []) << message
+      end
     end
   end
 
   let(:helper) { helper_class.new }
 
-  def fake_column(name, type, sql_type, limit: nil)
-    double("column-#{name}", name: name.to_s, type: type, sql_type: sql_type, limit: limit)
+  def fake_column(name, type, sql_type, limit: nil, null: false)
+    double("column-#{name}", name: name.to_s, type: type, sql_type: sql_type, limit: limit, null: null)
   end
 
   def connect(columns)
@@ -31,6 +45,7 @@ describe ValidatesOverlap::MigrationHelpers do
     allow(connection).to receive(:quote_table_name) { |name| %("#{name}") }
     allow(connection).to receive(:quote_column_name) { |name| %("#{name}") }
     allow(connection).to receive(:columns) { columns }
+    allow(connection).to receive(:extension_enabled?).and_return(false)
     helper.connection = connection
   end
 
@@ -76,6 +91,61 @@ describe ValidatesOverlap::MigrationHelpers do
     it 'drops the constraint by a custom name' do
       helper.remove_overlap_constraint(:meetings, name: 'my_constraint')
       expect(helper.executed.first).to eq 'ALTER TABLE "meetings" DROP CONSTRAINT "my_constraint"'
+    end
+
+    it 'does not enable btree_gist when it is already enabled' do
+      allow(helper.connection).to receive(:extension_enabled?).and_return(true)
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id)
+      expect(helper.extensions).to be_nil
+    end
+  end
+
+  # NULL = NULL is not true in SQL: the constraint never restricts rows whose scope
+  # value is NULL, while the validator DOES match NULL scope values against each other
+  # (documented in docs/postgresql.md; database behavior characterized in spec_pg/)
+  context 'nullable scope columns' do
+    it 'warns when a scope column allows NULL' do
+      connect(datetime_columns + [fake_column(:user_id, :integer, 'integer', limit: 4, null: true)])
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id)
+      expect(helper.said.join).to match(/scope column user_id on meetings allows NULL/)
+    end
+
+    it 'does not warn when the scope column is NOT NULL' do
+      connect(datetime_columns + [fake_column(:user_id, :integer, 'integer', limit: 4, null: false)])
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id)
+      expect(helper.said).to be_nil
+    end
+
+    it 'does not warn without a scope' do
+      connect(datetime_columns)
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at)
+      expect(helper.said).to be_nil
+    end
+  end
+
+  # On Rails 7.1+ the connection offers add_exclusion_constraint / remove_exclusion_constraint;
+  # delegating to them (instead of raw execute) makes the helpers invertible, so they
+  # work in def change migrations. The behavior is verified against a real database
+  # in spec_pg/ ('reversibility in def change'); these specs pin the delegation contract.
+  context 'delegation on Rails 7.1+' do
+    before do
+      connect(datetime_columns)
+      # stubbing the messages makes the connection double answer respond_to? with true —
+      # the capability gate the helper checks; the calls themselves land on the migration
+      allow(helper.connection).to receive(:add_exclusion_constraint)
+      allow(helper.connection).to receive(:remove_exclusion_constraint)
+    end
+
+    it 'adds the constraint via add_exclusion_constraint instead of raw SQL' do
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id)
+      expect(helper.executed).to be_nil
+      expect(helper.constraints_added).to eq [[:meetings, %q{"user_id" WITH =, tsrange("starts_at", "ends_at", '[]') WITH &&}, { using: :gist, name: 'meetings_no_overlap' }]]
+    end
+
+    it 'removes the constraint via remove_exclusion_constraint' do
+      helper.remove_overlap_constraint(:meetings, name: 'my_constraint')
+      expect(helper.executed).to be_nil
+      expect(helper.constraints_removed).to eq [[:meetings, { name: 'my_constraint' }]]
     end
   end
 

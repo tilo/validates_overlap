@@ -38,6 +38,10 @@ Helper options:
 | `range_type`    | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`)                              |
 | `exclude_edges` | `false`              | `false` = inclusive edges, touching conflicts (the validator's default); `true` = half-open ranges, touching allowed. Not applicable to the single-column form |
 
+⚠️ **NULL scope values are not restricted by the constraint:** `NULL = NULL` is not true in SQL, so two overlapping rows whose scope value is NULL are both admitted by the database — while the validator does treat NULL scope values as matching each other. If your scope column can be NULL, add a `NOT NULL` constraint to it (recommended), or accept that NULL-scoped rows are only covered by the validation. `add_overlap_constraint` prints a warning when a scope column allows NULL.
+
+The helpers are reversible on Rails 7.1 and newer: `add_overlap_constraint` works inside a `def change` migration and `rails db:rollback` drops the constraint again. On Rails 6.1 and 7.0 the helpers issue raw SQL, so use `def up` / `def down` there, as in the example above.
+
 ## Turning the violation into a validation error
 
 To turn the constraint violation from the race window into a normal validation failure (instead of an exception bubbling up), include the companion concern in your model — `save` then returns false with the overlap error set, and `save!` raises `ActiveRecord::RecordInvalid`:

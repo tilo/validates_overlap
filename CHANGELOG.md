@@ -2,13 +2,13 @@
 
 ## 1.3.0 (UNRELEASED)
 
-RSpec tests: **126 → 208** (+82 tests)
+RSpec tests: **126 → 216** (+90 tests)
 
 ### New Features
 
   - native PostgreSQL range columns: declare the validation with a single range-column attribute (`validates :period, overlap: { scope: :user_id }` on a `tsrange` / `tstzrange` / `daterange` / `int4range` / `int8range` / `numrange` column) — compared with PostgreSQL's `&&` operator, whose range algebra decides every edge case, so the validation and an exclusion constraint can never disagree: bound inclusivity comes from the stored value, a `NULL` range conflicts with nothing, `'(,)'` conflicts with everything. `exclude_edges` and the shifts raise `ArgumentError` for range columns; a single-attribute validation on a non-range column raises `OverlapValidator::UnsupportedColumnType`. `add_overlap_constraint :meetings, :period, scope: :user_id` generates the matching one-column exclusion constraint
   - `record.overlapping_records`, defined on every model with an overlap validation: freshly queries the conflicting records on demand and returns an `ActiveRecord::Relation` — always current, and no records are loaded until the result is used
-  - `add_overlap_constraint` / `remove_overlap_constraint` migration helpers (PostgreSQL): generate a database-level exclusion constraint that closes the check-then-act race no validation can close — the range type is inferred from the column types, scope columns are compared with equality, and the edge semantics mirror the validator's; raises `NotImplementedError` on other adapters
+  - `add_overlap_constraint` / `remove_overlap_constraint` migration helpers (PostgreSQL): generate a database-level exclusion constraint that closes the check-then-act race no validation can close — the range type is inferred from the column types, scope columns are compared with equality, and the edge semantics mirror the validator's; raises `NotImplementedError` on other adapters. Reversible in `def change` migrations on Rails 7.1+ (`db:rollback` drops the constraint); `btree_gist` is only enabled when missing; warns when a scope column allows NULL — NULL-scoped rows are not restricted by an exclusion constraint (`NULL = NULL` is not true in SQL), while the validation does match NULL scope values
   - `ValidatesOverlap::RescueExclusionViolation` (opt-in model concern): turns the constraint violation from the race window into a normal validation failure — `save` returns false with the overlap error set, `save!` raises `ActiveRecord::RecordInvalid`
   - the test suite runs against SQLite, PostgreSQL (`DB=postgres`, including the PostgreSQL-only specs in `spec_pg/`), and MySQL (`DB=mysql`), with CI jobs for all three adapters and an allowed-failure lane against rails main; new rake tasks run them locally (`rake spec:postgres` / `spec:mysql` / `spec:all`)
 

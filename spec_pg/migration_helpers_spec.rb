@@ -91,6 +91,25 @@ describe ValidatesOverlap::MigrationHelpers do
     end
   end
 
+  # NULL = NULL is not true in SQL, so the constraint admits overlapping rows whose
+  # scope value is NULL — while the validator matches NULL scope values against each
+  # other. Documented in docs/postgresql.md; add_overlap_constraint warns about
+  # nullable scope columns (covered by the unit specs in spec/).
+  context 'NULL scope values (documented limitation)' do
+    before do
+      migrate do
+        def change
+          add_overlap_constraint :pg_bookings, :starts_at, :ends_at, scope: :user_id
+        end
+      end
+    end
+
+    it 'does not restrict rows with a NULL scope value' do
+      exec_sql("INSERT INTO pg_bookings (user_id, starts_at, ends_at) VALUES (NULL, '2030-01-01 10:00', '2030-01-01 12:00')")
+      expect { exec_sql("INSERT INTO pg_bookings (user_id, starts_at, ends_at) VALUES (NULL, '2030-01-01 11:00', '2030-01-01 13:00')") }.not_to raise_error
+    end
+  end
+
   context 'without a scope' do
     before do
       migrate do
@@ -219,6 +238,25 @@ describe ValidatesOverlap::MigrationHelpers do
 
     it 'drops the constraint so overlapping rows insert again' do
       expect { insert(1, '2030-01-01 11:00', '2030-01-01 13:00') }.not_to raise_error
+    end
+  end
+
+  context 'reversibility in def change' do
+    let(:migration) do
+      Class.new(ActiveRecord::Migration[6.1]) do
+        def change
+          add_overlap_constraint :pg_bookings, :starts_at, :ends_at, scope: :user_id
+        end
+      end
+    end
+
+    it 'rolls back add_overlap_constraint, dropping the constraint again' do
+      ActiveRecord::Migration.suppress_messages { migration.migrate(:up) }
+      insert(1, '2030-01-01 10:00', '2030-01-01 12:00')
+      expect { insert(1, '2030-01-01 11:00', '2030-01-01 13:00') }.to raise_error(ActiveRecord::StatementInvalid)
+
+      ActiveRecord::Migration.suppress_messages { migration.migrate(:down) }
+      expect { insert(1, '2030-01-01 11:30', '2030-01-01 13:30') }.not_to raise_error
     end
   end
 end
