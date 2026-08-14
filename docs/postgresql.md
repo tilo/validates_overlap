@@ -54,14 +54,21 @@ end
 PostgreSQL can store a range as a single column value (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`). Declare the validation with that one attribute:
 
 ```ruby
+# migration
 create_table :meetings do |t|
   t.tstzrange :period
   t.integer :user_id
 end
 
+# model — one attribute instead of two
 class Meeting < ActiveRecord::Base
   validates :period, overlap: { scope: :user_id }
 end
+
+Meeting.create!(user_id: 1, period: Time.utc(2030, 1, 1, 10)...Time.utc(2030, 1, 1, 12))
+Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 11)...Time.utc(2030, 1, 1, 13)).valid?  # => false (overlaps)
+Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 12)...Time.utc(2030, 1, 1, 14)).valid?  # => true (half-open ranges may touch)
+Meeting.new(user_id: 1, period: nil).valid?                                                  # => true (no range, conflicts with nothing)
 ```
 
 The comparison uses PostgreSQL's `&&` operator, and PostgreSQL's own range algebra decides every edge case — which means the validation and an exclusion constraint can never disagree:

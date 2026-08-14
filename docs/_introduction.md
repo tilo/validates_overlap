@@ -95,29 +95,9 @@ meeting.overlapping_records.count    # => runs a COUNT query, loads no records
 
 The former mechanism — `overlap: { load_overlapped: true }`, which set `@overlapped_records` on the record and required a hand-written accessor — still works but is deprecated and will be removed in 2.0: it kept stale results after re-validation and loaded the records during every validation.
 
-#### PostgreSQL range columns
+#### PostgreSQL range columns and exclusion constraints
 
-On PostgreSQL, the range can live in a single native range column (`tstzrange`, `daterange`, `int4range`, …) — declare the validation with that one attribute:
-
-```ruby
-# migration
-create_table :meetings do |t|
-  t.tstzrange :period
-  t.integer :user_id
-end
-
-# model — one attribute instead of two
-class Meeting < ActiveRecord::Base
-  validates :period, overlap: { scope: :user_id }
-end
-
-Meeting.create!(user_id: 1, period: Time.utc(2030, 1, 1, 10)...Time.utc(2030, 1, 1, 12))
-Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 11)...Time.utc(2030, 1, 1, 13)).valid?  # => false (overlaps)
-Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 12)...Time.utc(2030, 1, 1, 14)).valid?  # => true (half-open ranges may touch)
-Meeting.new(user_id: 1, period: nil).valid?                                                  # => true (no range, conflicts with nothing)
-```
-
-The comparison uses PostgreSQL's `&&` operator; bound inclusivity is part of the stored value, so there is no `exclude_edges` option here. See [PostgreSQL: Exclusion Constraints](./postgresql.md) for the full semantics and the matching one-column exclusion constraint.
+On PostgreSQL, the range can live in a single native range column, and a database-level exclusion constraint can close the concurrency race no validation can — examples for both are on the [PostgreSQL: Exclusion Constraints](./postgresql.md) page.
 
 #### skipping validation when no range is set
 
