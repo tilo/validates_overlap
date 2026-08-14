@@ -7,8 +7,12 @@ class OverlapValidator < ActiveModel::EachValidator
   # operate on (e.g. :time — a cyclic domain, see README)
   class UnsupportedColumnType < ArgumentError; end
 
+  # PostgreSQL range column types usable with the single-attribute form
+  RANGE_COLUMN_TYPES = %i[tsrange tstzrange daterange int4range int8range numrange].freeze
+
   def initialize(args)
     attributes_are_range(args[:attributes])
+    reject_range_column_options(args)
     model_class = args[:class]
 
     super
@@ -23,6 +27,7 @@ class OverlapValidator < ActiveModel::EachValidator
   # Build and return the overlap query for the given record — used by
   # ValidatesOverlap::OverlappingRecords#overlapping_records
   def overlapping_records_for(record)
+    reject_unsupported_column_types(record)
     relation, sql_conditions, sql_values = initialize_query(record, options)
     get_overlapped(relation, sql_conditions, sql_values)
   end
@@ -61,6 +66,13 @@ class OverlapValidator < ActiveModel::EachValidator
   # metadata must not be touched while migrations may still be pending.
   def reject_unsupported_column_types(record)
     return unless record.class.respond_to?(:columns_hash)
+    if range_column_mode?
+      attr = attributes.first
+      column = record.class.columns_hash[attr.to_s]
+      return if column && RANGE_COLUMN_TYPES.include?(column.type)
+      found = column ? column.type.inspect : 'no column at all'
+      raise UnsupportedColumnType, "#{record.class.name}##{attr}: a single-attribute overlap validation requires a PostgreSQL range column (#{RANGE_COLUMN_TYPES.join(', ')}), but #{attr} is #{found} — declare two attributes for scalar range endpoints"
+    end
     attributes.each do |attr|
       next if attr.to_s.include?('.')
       column = record.class.columns_hash[attr.to_s]
@@ -69,14 +81,32 @@ class OverlapValidator < ActiveModel::EachValidator
     end
   end
 
+  # One attribute = a native range column, compared with PostgreSQL's && operator
+  def range_column_mode?
+    attributes.size == 1
+  end
+
+  # Edge inclusivity and shifts live in the range value itself, so these
+  # options have nothing to act on — refuse loudly instead of ignoring
+  def reject_range_column_options(args)
+    return unless args[:attributes].size == 1
+    invalid = [:exclude_edges, :start_shift, :end_shift].select { |key| args[key] }
+    return if invalid.empty?
+    raise ArgumentError, "validates_overlap: #{invalid.join(', ')} not applicable to a range column — edge inclusivity and shifts are part of the range value itself"
+  end
+
   # Build the complete overlap query for this record.
   # return array in form [relation, sql_conditions, sql_values]
   def initialize_query(record, options = {})
     scoped_model = options[:scoped_model].present? ? options[:scoped_model].constantize : record.class
     relation = scoped_model.default_scoped
-    sql_values = generate_overlap_sql_values(record)
-    sql_conditions, primary_key_values = generate_overlap_sql_conditions(record, sql_values)
-    sql_values = sql_values.merge(primary_key_values)
+    if range_column_mode?
+      relation, sql_conditions, sql_values = range_column_query(relation, record)
+    else
+      sql_values = generate_overlap_sql_values(record)
+      sql_conditions, primary_key_values = generate_overlap_sql_conditions(record, sql_values)
+      sql_values = sql_values.merge(primary_key_values)
+    end
     sql_conditions, sql_values = add_attributes(record, options[:scope], sql_conditions, sql_values) if options && options[:scope].present?
     relation = add_query_options(relation, options[:query_options]) if options && options[:query_options].present?
     [relation, sql_conditions, sql_values]
@@ -129,9 +159,32 @@ class OverlapValidator < ActiveModel::EachValidator
     record.class.table_name
   end
 
-  # Check if the validation of time range is defined by 2 attributes
+  # A range is defined by 2 scalar attributes, or by 1 range-column attribute
   def attributes_are_range(attributes)
-    fail 'Validation of time range must be defined by 2 attributes' unless attributes.size == 2
+    fail 'Validation of time range must be defined by 1 or 2 attributes' unless [1, 2].include?(attributes.size)
+  end
+
+  # Native range column: PostgreSQL's own && operator does the comparison, and
+  # its range algebra decides every edge case — NULL overlaps nothing, 'empty'
+  # overlaps nothing, '(,)' overlaps everything, bound inclusivity comes from
+  # the stored value. The value is bound through the column's type via Arel.
+  # return array in form [relation, sql_conditions, sql_values]
+  def range_column_query(relation, record)
+    attr = attributes.first
+    value = record.send(attr)
+    return [relation.none, '1 = 1', {}] if value.nil?
+    arel_attribute = record.class.arel_table[attr]
+    overlap = Arel::Nodes::InfixOperation.new('&&', arel_attribute, Arel::Nodes.build_quoted(value, arel_attribute))
+    pk_conditions, pk_values = primary_key_exclusion(record)
+    [relation.where(overlap), pk_conditions.presence || '1 = 1', pk_values]
+  end
+
+  # Exclude a persisted record from the comparison by its primary key
+  # return array in form [sql_conditions, sql_values]
+  def primary_key_exclusion(record)
+    return ['', {}] if record.new_record?
+    key = primary_key_value(primary_key(record), record)
+    ["#{record_table_name(record)}.#{primary_key(record)} != :record_primary_key_value", { record_primary_key_value: key }]
   end
 
   def primary_key(record)
@@ -148,12 +201,9 @@ class OverlapValidator < ActiveModel::EachValidator
   def generate_overlap_sql_conditions(record, sql_values)
     starts_at_attr, ends_at_attr = attributes_to_sql(record)
     main_condition = condition_string(starts_at_attr, ends_at_attr, sql_values)
-    if record.new_record?
-      [main_condition, {}]
-    else
-      key = primary_key_value(primary_key(record), record)
-      ["#{main_condition} AND #{record_table_name(record)}.#{primary_key(record)} != :record_primary_key_value", { record_primary_key_value: key }]
-    end
+    pk_conditions, pk_values = primary_key_exclusion(record)
+    return [main_condition, {}] if pk_conditions.empty?
+    ["#{main_condition} AND #{pk_conditions}", pk_values]
   end
 
   # Return hash of values for overlap sql condition; a nil endpoint means the

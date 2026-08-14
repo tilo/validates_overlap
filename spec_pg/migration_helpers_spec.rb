@@ -170,6 +170,38 @@ describe ValidatesOverlap::MigrationHelpers do
     end
   end
 
+  context 'with a single range column' do
+    before do
+      connection.drop_table :pg_slots2, if_exists: true
+      connection.create_table :pg_slots2 do |t|
+        t.tstzrange :period
+        t.integer :user_id
+      end
+      migrate do
+        def change
+          add_overlap_constraint :pg_slots2, :period, scope: :user_id
+        end
+      end
+      exec_sql(%q{INSERT INTO pg_slots2 (user_id, period) VALUES (1, '[2030-01-01 10:00,2030-01-01 12:00)')})
+    end
+
+    after do
+      connection.drop_table :pg_slots2, if_exists: true
+    end
+
+    it 'rejects an overlapping range for the same scope at the database level' do
+      expect { exec_sql(%q{INSERT INTO pg_slots2 (user_id, period) VALUES (1, '[2030-01-01 11:00,2030-01-01 13:00)')}) }.to raise_error(ActiveRecord::StatementInvalid)
+    end
+
+    it 'accepts a touching half-open range (bounds live in the value)' do
+      expect { exec_sql(%q{INSERT INTO pg_slots2 (user_id, period) VALUES (1, '[2030-01-01 12:00,2030-01-01 14:00)')}) }.not_to raise_error
+    end
+
+    it 'accepts an overlapping range for another scope' do
+      expect { exec_sql(%q{INSERT INTO pg_slots2 (user_id, period) VALUES (2, '[2030-01-01 11:00,2030-01-01 13:00)')}) }.not_to raise_error
+    end
+  end
+
   context 'removal' do
     before do
       migrate do
