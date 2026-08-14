@@ -11,7 +11,7 @@
 
 `validates_overlap` provides an ActiveRecord validator for resources that must not overlap, e.g. in datetime. Think rentals, meetings, bookings, work shifts, or assignments where the same resource cannot be assigned to multiple people or entities during overlapping time periods.
 
-You specify two attributes defining a range, such as `starts_at` and `ends_at`, and the validator checks with a single SQL query whether another record overlaps that range. If one does, the record receives a normal validation error.
+You specify the attributes defining a range — typically two, such as `starts_at` and `ends_at`, or on PostgreSQL a single native range column — and the validator checks with a single SQL query whether another record overlaps that range. If one does, the record receives a normal validation error.
 
 The [Option Reference](./options.md) defines every option. [Range Types and Domains](./range_types.md) explains which column types work — and why cyclic domains fundamentally cannot. [PostgreSQL: Exclusion Constraints](./postgresql.md) shows how to make the no-overlap guarantee hold under concurrent writes, which no validation alone can do.
 
