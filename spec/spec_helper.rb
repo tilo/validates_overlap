@@ -17,7 +17,7 @@ require 'pry'
 
 ActionMailer::Base.delivery_method = :test
 ActionMailer::Base.perform_deliveries = false
-ActionMailer::Base.default_url_options[:host] = 'test.com'
+ActionMailer::Base.default_url_options = { host: 'test.com' }
 
 Rails.backtrace_cleaner.remove_silencers!
 
