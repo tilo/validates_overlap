@@ -95,6 +95,36 @@ describe 'overlap validation on a range column' do
     end
   end
 
+  context 'scope forms on a range column' do
+    before do
+      PgSlot.create!(user_id: 1, period: t(10)...t(12))
+    end
+
+    it 'supports a hash scope with a proc value' do
+      stub_const('ProcScopedSlot', Class.new(ActiveRecord::Base) do
+        self.table_name = 'pg_slots'
+        validates :period, overlap: { scope: { 'user_id' => proc { |slot| slot.user_id } } }
+      end)
+      expect(ProcScopedSlot.new(user_id: 1, period: t(11)...t(13))).not_to be_valid
+      expect(ProcScopedSlot.new(user_id: 2, period: t(11)...t(13))).to be_valid
+    end
+
+    it 'a nil scope value matches other NULL-scoped records, like in two-attribute mode' do
+      PgSlot.create!(user_id: nil, period: t(10)...t(12))
+      expect(PgSlot.new(user_id: nil, period: t(11)...t(13))).not_to be_valid
+      expect(PgSlot.new(user_id: nil, period: t(13)...t(14))).to be_valid
+    end
+
+    it 'an array value in a hash scope builds an IN comparison' do
+      stub_const('MultiUserSlot', Class.new(ActiveRecord::Base) do
+        self.table_name = 'pg_slots'
+        validates :period, overlap: { scope: { 'user_id' => [1, 2] } }
+      end)
+      expect(MultiUserSlot.new(user_id: 9, period: t(11)...t(13))).not_to be_valid
+      expect(MultiUserSlot.new(user_id: 9, period: t(13)...t(14))).to be_valid
+    end
+  end
+
   context 'overlapping_records' do
     it 'returns the conflicting records as a relation, freshly computed' do
       existing = PgSlot.create!(user_id: 1, period: t(10)...t(12))

@@ -42,4 +42,25 @@ describe 'overlapping_records' do
     meeting = FactoryBot.build(:meeting, starts_at: '2011-01-06'.to_date, ends_at: '2011-01-07'.to_date)
     expect(meeting.overlapping_records.count).to eq 1
   end
+
+  it 'still returns a Relation when the validators were removed (clear_validators!)' do
+    stub_const('StrippedMeeting', Class.new(Meeting))
+    StrippedMeeting.clear_validators!
+    record = StrippedMeeting.new
+    expect(record.overlapping_records).to be_a(ActiveRecord::Relation)
+    expect(record.overlapping_records).to be_empty
+  end
+
+  # Relation#or never compares the two relations' classes — without this guard
+  # the union would silently run the second validation's conditions against the
+  # first validation's model
+  it 'raises a clear error when overlap validations query different models' do
+    stub_const('DualModelMeeting', Class.new(ActiveRecord::Base) do
+      self.table_name = 'meetings'
+      validates :starts_at, :ends_at, overlap: true
+      validates :starts_at, :ends_at, overlap: { scoped_model: 'MeetingCopy' }
+    end)
+    record = DualModelMeeting.new(starts_at: '2011-01-06'.to_date, ends_at: '2011-01-07'.to_date)
+    expect { record.overlapping_records }.to raise_error(ArgumentError, /different models/)
+  end
 end

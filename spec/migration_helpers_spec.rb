@@ -250,4 +250,11 @@ describe 'ValidatesOverlap.exclusion_violation?' do
   it 'is false for arbitrary errors' do
     expect(ValidatesOverlap.exclusion_violation?(StandardError.new)).to be false
   end
+
+  # Rails 8.1+ maps SQLSTATE 23P01 to its own error class; recognizing it does
+  # not depend on the PG constant or on the cause chain surviving (e.g. JRuby)
+  it 'recognizes ActiveRecord::ExclusionViolation even without a preserved cause' do
+    stub_const('ActiveRecord::ExclusionViolation', Class.new(ActiveRecord::StatementInvalid))
+    expect(ValidatesOverlap.exclusion_violation?(ActiveRecord::ExclusionViolation.new('boom'))).to be true
+  end
 end

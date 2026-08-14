@@ -40,4 +40,39 @@ describe 'range-column query building' do
     expect { record.valid? }.to raise_error(OverlapValidator::UnsupportedColumnType)
     expect { record.overlapping_records }.to raise_error(OverlapValidator::UnsupportedColumnType)
   end
+
+  it 'raises for a two-attribute validation on range columns instead of running the scalar comparison' do
+    stub_const('TwoRangeModel', Class.new(ActiveRecord::Base) do
+      self.table_name = 'meetings'
+      attr_accessor :period, :backup_period
+      validates :period, :backup_period, overlap: true
+    end)
+    TwoRangeModel.new
+    allow(TwoRangeModel).to receive(:columns_hash).and_return(
+      'period' => double('column', type: :tstzrange),
+      'backup_period' => double('column', type: :tstzrange)
+    )
+    expect { TwoRangeModel.new.valid? }.to raise_error(OverlapValidator::UnsupportedColumnType, /validated on its own/)
+  end
+
+  # Relation#or keeps a NullRelation's emptiness on Rails 6.1/7.0 (fixed
+  # upstream in 7.1) — the union must drop a nil range value's empty relation
+  # instead of letting it hide the other validation's conflicts
+  it 'a nil range value does not hide conflicts found by another overlap validation' do
+    stub_const('DualValidationModel', Class.new(ActiveRecord::Base) do
+      self.table_name = 'meetings'
+      attr_accessor :period
+      validates :period, overlap: true
+      validates :starts_at, :ends_at, overlap: true
+    end)
+    DualValidationModel.new
+    allow(DualValidationModel).to receive(:columns_hash).and_return(
+      'period' => double('column', type: :tstzrange),
+      'starts_at' => double('column', type: :datetime),
+      'ends_at' => double('column', type: :datetime)
+    )
+    existing = Meeting.create!(starts_at: '2035-03-05'.to_date, ends_at: '2035-03-08'.to_date)
+    record = DualValidationModel.new(starts_at: '2035-03-06'.to_date, ends_at: '2035-03-07'.to_date)
+    expect(record.overlapping_records.pluck(:id)).to eq [existing.id]
+  end
 end
