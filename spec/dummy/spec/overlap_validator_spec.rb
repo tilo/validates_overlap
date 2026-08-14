@@ -30,6 +30,18 @@ describe OverlapValidator do
     end
   end
 
+  context 'deprecation of load_overlapped' do
+    it 'warns when a validation is declared with load_overlapped' do
+      expect(ValidatesOverlap.deprecator).to receive(:warn).with(/overlapping_records/)
+      OverlapValidator.new(attributes: [:starts_at, :ends_at], load_overlapped: true)
+    end
+
+    it 'does not warn without load_overlapped' do
+      expect(ValidatesOverlap.deprecator).not_to receive(:warn)
+      OverlapValidator.new(attributes: [:starts_at, :ends_at])
+    end
+  end
+
   context 'initialization' do
     it 'raises if the time range is defined by only 1 attribute' do
       expect do
