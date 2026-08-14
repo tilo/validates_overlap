@@ -78,12 +78,19 @@ jobs:
   test_postgres:
     runs-on: ubuntu-latest
 
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["16", "18"]
+
+    name: test_postgres (${{ matrix.postgres }})
+
     # the CODECOV_TOKEN secret lives in this GitHub environment
     environment: test
 
     services:
       postgres:
-        image: postgres:16
+        image: postgres:${{ matrix.postgres }}
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: validates_overlap_test
@@ -113,7 +120,11 @@ jobs:
         run: bundle exec rspec
       - name: Run PostgreSQL-only specs (exclusion constraints)
         run: bundle exec rspec spec_pg
+      - name: Run PostgreSQL-18-only specs (WITHOUT OVERLAPS)
+        if: matrix.postgres == '18'
+        run: bundle exec rspec spec_pg_18
       - name: Upload coverage to Codecov
+        if: matrix.postgres == '18'
         uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}

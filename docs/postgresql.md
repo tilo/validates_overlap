@@ -31,16 +31,29 @@ end
 
 Helper options:
 
-| Option          | Default              | Effect                                                                                                                                                         |
-|-----------------|----------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `scope`         | none                 | Column(s) compared with equality, mirroring the validator's `scope`                                                                                            |
-| `name`          | `<table>_no_overlap` | The constraint name — pass the same `name:` to `remove_overlap_constraint` when overridden                                                                     |
-| `range_type`    | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`)                              |
-| `exclude_edges` | `false`              | `false` = inclusive edges, touching conflicts (the validator's default); `true` = half-open ranges, touching allowed. Not applicable to the single-column form |
+| Option             | Default              | Effect                                                                                                                                                                               |
+|--------------------|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `scope`            | none                 | Column(s) compared with equality, mirroring the validator's `scope`                                                                                                                  |
+| `name`             | `<table>_no_overlap` | The constraint name — pass the same `name:` to `remove_overlap_constraint` when overridden                                                                                           |
+| `range_type`       | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`)                                                    |
+| `exclude_edges`    | `false`              | `false` = inclusive edges, touching conflicts (the validator's default); `true` = half-open ranges, touching allowed. Not applicable to the single-column form                       |
+| `without_overlaps` | `false`              | PostgreSQL 18+, single range column with `scope` only: generate the standard-SQL temporal unique constraint `UNIQUE (scope, range WITHOUT OVERLAPS)` instead of the `EXCLUDE` clause |
 
 ⚠️ **NULL scope values are not restricted by the constraint:** `NULL = NULL` is not true in SQL, so two overlapping rows whose scope value is NULL are both admitted by the database — while the validator does treat NULL scope values as matching each other. If your scope column can be NULL, add a `NOT NULL` constraint to it (recommended), or accept that NULL-scoped rows are only covered by the validation. `add_overlap_constraint` prints a warning when a scope column allows NULL.
 
 The helpers are reversible on Rails 7.1 and newer: `add_overlap_constraint` works inside a `def change` migration and `rails db:rollback` drops the constraint again. On Rails 6.1 and 7.0 the helpers issue raw SQL, so use `def up` / `def down` there, as in the example above.
+
+On PostgreSQL 18 and newer, `without_overlaps: true` generates the standard-SQL temporal unique constraint instead of the `EXCLUDE` clause — `UNIQUE (user_id, period WITHOUT OVERLAPS)`. PostgreSQL enforces it as an exclusion constraint, so violations raise the same error and `RescueExclusionViolation` works unchanged. It applies only to the single-range-column form with at least one `scope` column (PostgreSQL requires an ordinary column before `WITHOUT OVERLAPS`); empty range values are rejected by the database, while the validator treats an empty range as conflicting with nothing; and this form always issues raw SQL, so use `def up` / `def down`:
+
+```ruby
+def up
+  add_overlap_constraint :meetings, :period, scope: :user_id, without_overlaps: true
+end
+
+def down
+  remove_overlap_constraint :meetings
+end
+```
 
 ## Turning the violation into a validation error
 

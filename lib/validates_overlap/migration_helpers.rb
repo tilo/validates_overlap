@@ -14,18 +14,22 @@ module ValidatesOverlap
     # Two scalar columns:  add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
     # One range column:    add_overlap_constraint :meetings, :period, scope: :user_id
     #
-    # scope:         column(s) compared with equality, mirroring the validator's :scope
-    # name:          constraint name (default: <table>_no_overlap)
-    # range_type:    PostgreSQL range type; inferred from the column types when omitted
-    # exclude_edges: false (default) matches the validator's default — touching edges
-    #                conflict; true builds half-open ranges, matching the validator's
-    #                exclude_edges: [start, end] where touching is allowed.
-    #                Not applicable to a range column (bounds live in the value)
-    def add_overlap_constraint(table, starts_at, ends_at = nil, scope: [], name: nil, range_type: nil, exclude_edges: false)
+    # scope:            column(s) compared with equality, mirroring the validator's :scope
+    # name:             constraint name (default: <table>_no_overlap)
+    # range_type:       PostgreSQL range type; inferred from the column types when omitted
+    # exclude_edges:    false (default) matches the validator's default — touching edges
+    #                   conflict; true builds half-open ranges, matching the validator's
+    #                   exclude_edges: [start, end] where touching is allowed.
+    #                   Not applicable to a range column (bounds live in the value)
+    # without_overlaps: PostgreSQL 18+, single range column with scope only — generate
+    #                   the standard-SQL temporal unique constraint
+    #                   UNIQUE (scope, range WITHOUT OVERLAPS) instead of the EXCLUDE clause
+    def add_overlap_constraint(table, starts_at, ends_at = nil, scope: [], name: nil, range_type: nil, exclude_edges: false, without_overlaps: false)
       assert_postgresql!('add_overlap_constraint')
       scope_columns = Array(scope)
       warn_nullable_scope_columns(table, scope_columns)
       enable_extension 'btree_gist' if !scope_columns.empty? && !connection.extension_enabled?('btree_gist')
+      return add_without_overlaps_constraint(table, starts_at, ends_at, scope_columns, name, exclude_edges) if without_overlaps
       elements = scope_columns.map { |column| "#{connection.quote_column_name(column)} WITH =" }
       if ends_at.nil?
         raise ArgumentError, 'validates_overlap: exclude_edges is not applicable to a range column — bound inclusivity is part of the range value itself' if exclude_edges
@@ -48,16 +52,37 @@ module ValidatesOverlap
       end
     end
 
+    # A plain DROP CONSTRAINT on purpose: it drops both constraint forms, while
+    # Rails' remove_exclusion_constraint refuses a temporal unique constraint
+    # (without_overlaps) — and delegating would not make removal invertible in
+    # def change anyway, since the inversion needs the original expression
     def remove_overlap_constraint(table, name: nil)
       assert_postgresql!('remove_overlap_constraint')
-      if connection.respond_to?(:remove_exclusion_constraint)
-        remove_exclusion_constraint table, name: overlap_constraint_name(table, name)
-      else
-        execute "ALTER TABLE #{connection.quote_table_name(table)} DROP CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}"
-      end
+      execute "ALTER TABLE #{connection.quote_table_name(table)} DROP CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}"
     end
 
     private
+
+    # PostgreSQL 18's temporal unique constraint. PostgreSQL enforces it as an
+    # exclusion constraint — UNIQUE (id, r WITHOUT OVERLAPS) behaves like
+    # EXCLUDE USING GIST (id WITH =, r WITH &&) and violations raise
+    # PG::ExclusionViolation — so RescueExclusionViolation keeps working.
+    # Differences to the EXCLUDE form: standard SQL syntax, but empty ranges are
+    # rejected by the database, and the raw SQL here cannot be inverted by
+    # Rails — use def up / def down with this option
+    def add_without_overlaps_constraint(table, range_column, ends_at, scope_columns, name, exclude_edges)
+      raise ArgumentError, 'validates_overlap: without_overlaps applies to a single range column — the two-column form builds a range expression, which PostgreSQL does not allow in a temporal constraint' unless ends_at.nil?
+      raise ArgumentError, 'validates_overlap: exclude_edges is not applicable to a range column — bound inclusivity is part of the range value itself' if exclude_edges
+      raise ArgumentError, 'validates_overlap: without_overlaps needs at least one scope column — PostgreSQL requires an ordinary column before WITHOUT OVERLAPS' if scope_columns.empty?
+      raise ArgumentError, "validates_overlap: without_overlaps requires PostgreSQL 18+ (the server reports version #{connection.database_version})" if connection.database_version < 180_000
+      assert_range_column!(table, range_column)
+      columns = scope_columns.map { |column| connection.quote_column_name(column) } + ["#{connection.quote_column_name(range_column)} WITHOUT OVERLAPS"]
+      execute <<~SQL
+        ALTER TABLE #{connection.quote_table_name(table)}
+          ADD CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}
+          UNIQUE (#{columns.join(', ')})
+      SQL
+    end
 
     # NULL = NULL is not true in SQL, so the constraint never restricts rows whose
     # scope value is NULL — while the validator DOES match NULL scope values against

@@ -142,10 +142,10 @@ describe ValidatesOverlap::MigrationHelpers do
       expect(helper.constraints_added).to eq [[:meetings, %q{"user_id" WITH =, tsrange("starts_at", "ends_at", '[]') WITH &&}, { using: :gist, name: 'meetings_no_overlap' }]]
     end
 
-    it 'removes the constraint via remove_exclusion_constraint' do
+    it 'removes the constraint with a plain DROP CONSTRAINT — remove_exclusion_constraint would refuse a temporal unique constraint' do
       helper.remove_overlap_constraint(:meetings, name: 'my_constraint')
-      expect(helper.executed).to be_nil
-      expect(helper.constraints_removed).to eq [[:meetings, { name: 'my_constraint' }]]
+      expect(helper.constraints_removed).to be_nil
+      expect(helper.executed.first).to eq 'ALTER TABLE "meetings" DROP CONSTRAINT "my_constraint"'
     end
   end
 
@@ -226,6 +226,45 @@ describe ValidatesOverlap::MigrationHelpers do
     it 'rejects a missing column' do
       connect(range_columns)
       expect { helper.add_overlap_constraint(:meetings, :nope) }.to raise_error(ArgumentError, /no column nope/)
+    end
+  end
+
+  # PostgreSQL 18's temporal unique constraints: UNIQUE (scope, range WITHOUT OVERLAPS).
+  # PostgreSQL enforces them as exclusion constraints (the docs: UNIQUE (id, r WITHOUT
+  # OVERLAPS) behaves like EXCLUDE USING GIST (id WITH =, r WITH &&)), so the violation
+  # class and RescueExclusionViolation keep working — verified against a real
+  # PostgreSQL 18 server in spec_pg_18/.
+  context 'without_overlaps: true (PostgreSQL 18+)' do
+    let(:range_columns) do
+      [fake_column(:period, :tstzrange, 'tstzrange'), fake_column(:user_id, :integer, 'integer', limit: 4)]
+    end
+
+    before do
+      connect(range_columns)
+      allow(helper.connection).to receive(:database_version).and_return(180_004)
+    end
+
+    it 'generates a temporal unique constraint instead of an exclusion constraint' do
+      helper.add_overlap_constraint(:meetings, :period, scope: :user_id, without_overlaps: true)
+      sql = helper.executed.first
+      expect(sql).to include('ALTER TABLE "meetings"')
+      expect(sql).to include('ADD CONSTRAINT "meetings_no_overlap"')
+      expect(sql).to include('UNIQUE ("user_id", "period" WITHOUT OVERLAPS)')
+      expect(helper.extensions).to eq ['btree_gist']
+    end
+
+    it 'raises on PostgreSQL versions before 18' do
+      allow(helper.connection).to receive(:database_version).and_return(160_009)
+      expect { helper.add_overlap_constraint(:meetings, :period, scope: :user_id, without_overlaps: true) }.to raise_error(ArgumentError, /PostgreSQL 18/)
+    end
+
+    it 'raises for the two-column form — WITHOUT OVERLAPS takes a range column, not an expression' do
+      connect(datetime_columns)
+      expect { helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id, without_overlaps: true) }.to raise_error(ArgumentError, /single range column/)
+    end
+
+    it 'raises without a scope — PostgreSQL requires an ordinary column before WITHOUT OVERLAPS' do
+      expect { helper.add_overlap_constraint(:meetings, :period, without_overlaps: true) }.to raise_error(ArgumentError, /scope/)
     end
   end
 
