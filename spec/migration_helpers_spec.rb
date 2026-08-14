@@ -121,6 +121,12 @@ describe ValidatesOverlap::MigrationHelpers do
       helper.add_overlap_constraint(:meetings, :starts_at, :ends_at)
       expect(helper.said).to be_nil
     end
+
+    it 'skips the warning for a scope column it cannot find in the table' do
+      connect(datetime_columns)
+      helper.add_overlap_constraint(:meetings, :starts_at, :ends_at, scope: :user_id)
+      expect(helper.said).to be_nil
+    end
   end
 
   # On Rails 7.1+ the connection offers add_exclusion_constraint / remove_exclusion_constraint;
@@ -265,6 +271,19 @@ describe ValidatesOverlap::MigrationHelpers do
 
     it 'raises without a scope — PostgreSQL requires an ordinary column before WITHOUT OVERLAPS' do
       expect { helper.add_overlap_constraint(:meetings, :period, without_overlaps: true) }.to raise_error(ArgumentError, /scope/)
+    end
+
+    it 'rejects exclude_edges — bound inclusivity is part of the range value' do
+      expect { helper.add_overlap_constraint(:meetings, :period, scope: :user_id, exclude_edges: true, without_overlaps: true) }.to raise_error(ArgumentError, /not applicable to a range column/)
+    end
+
+    it 'applies a custom constraint name and several scope columns' do
+      connect(range_columns + [fake_column(:room_id, :integer, 'integer', limit: 4)])
+      allow(helper.connection).to receive(:database_version).and_return(180_004)
+      helper.add_overlap_constraint(:meetings, :period, scope: [:user_id, :room_id], name: 'my_wo', without_overlaps: true)
+      sql = helper.executed.first
+      expect(sql).to include('ADD CONSTRAINT "my_wo"')
+      expect(sql).to include('UNIQUE ("user_id", "room_id", "period" WITHOUT OVERLAPS)')
     end
   end
 

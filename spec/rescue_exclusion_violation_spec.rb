@@ -68,6 +68,18 @@ describe ValidatesOverlap::RescueExclusionViolation do
       expect(record.errors[:ends_at]).not_to be_empty
     end
 
+    it 'uses a custom message_content from the validation' do
+      stub_const('CustomMsgMeeting', Class.new(ActiveRecord::Base) do
+        self.table_name = 'meetings'
+        validates :starts_at, :ends_at, overlap: { message_content: 'is double-booked' }
+        include ValidatesOverlap::RescueExclusionViolation
+      end)
+      record = CustomMsgMeeting.new(starts_at: '2032-01-05'.to_date, ends_at: '2032-01-08'.to_date)
+      allow(record).to receive(:create_or_update).and_raise(exclusion_violation)
+      expect(record.save).to be false
+      expect(record.errors[:starts_at]).to eq ['is double-booked']
+    end
+
     it 'falls back to :base for association attributes the record cannot answer' do
       stub_const('AssocAttrMeeting', Class.new(ActiveRecord::Base) do
         self.table_name = 'meetings'

@@ -43,6 +43,18 @@ describe 'overlapping_records' do
     expect(meeting.overlapping_records.count).to eq 1
   end
 
+  it 'combines the results of several overlap validations on the same model' do
+    stub_const('DoubleValidatedMeeting', Class.new(ActiveRecord::Base) do
+      self.table_name = 'user_meetings'
+      validates :starts_at, :ends_at, overlap: { scope: 'user_id' }
+      validates :starts_at, :ends_at, overlap: true
+    end)
+    scoped_conflict = DoubleValidatedMeeting.create!(user_id: 1, starts_at: '2011-01-06'.to_date, ends_at: '2011-01-07'.to_date)
+    other_conflict = DoubleValidatedMeeting.create!(user_id: 2, starts_at: '2011-01-08'.to_date, ends_at: '2011-01-09'.to_date)
+    record = DoubleValidatedMeeting.new(user_id: 1, starts_at: '2011-01-05'.to_date, ends_at: '2011-01-10'.to_date)
+    expect(record.overlapping_records.pluck(:id).sort).to eq [scoped_conflict.id, other_conflict.id].sort
+  end
+
   it 'still returns a Relation when the validators were removed (clear_validators!)' do
     stub_const('StrippedMeeting', Class.new(Meeting))
     StrippedMeeting.clear_validators!

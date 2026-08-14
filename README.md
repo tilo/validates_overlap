@@ -47,7 +47,7 @@ add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
 ```
 
 ## ⭐ PostgreSQL Support
-Native PostgreSQL range columns are supported as well — declare the validation with the single range attribute (`validates :period, overlap: ...` on a `tstzrange` column). See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the range-column semantics, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL.
+Native PostgreSQL range columns are supported as well — declare the validation with the single range attribute (`validates :period, overlap: ...` on a `tstzrange` column). On PostgreSQL 18+, the migration helpers can also generate the standard-SQL temporal unique constraint (`without_overlaps: true`). See [PostgreSQL: Exclusion Constraints](docs/postgresql.md) for the helpers, the range-column semantics, the companion concern that turns the constraint violation into a normal validation error, and the equivalent hand-written SQL. CI runs the PostgreSQL suite against versions 16 and 18.
 
 ## Note: Add an index — the overlap check runs on every save
 
