@@ -132,6 +132,33 @@ describe ValidatesOverlap::MigrationHelpers do
     end
   end
 
+  context 'single range column form' do
+    let(:range_columns) do
+      [fake_column(:period, :tstzrange, 'tstzrange'), fake_column(:user_id, :integer, 'integer', limit: 4)]
+    end
+
+    it 'uses the range column directly with the && operator' do
+      connect(range_columns)
+      helper.add_overlap_constraint(:meetings, :period, scope: :user_id)
+      expect(helper.executed.first).to include('EXCLUDE USING gist ("user_id" WITH =, "period" WITH &&)')
+    end
+
+    it 'rejects exclude_edges — bound inclusivity is part of the range value' do
+      connect(range_columns)
+      expect { helper.add_overlap_constraint(:meetings, :period, exclude_edges: true) }.to raise_error(ArgumentError, /not applicable to a range column/)
+    end
+
+    it 'rejects a non-range column' do
+      connect([fake_column(:starts_at, :datetime, 'timestamp(6) without time zone')])
+      expect { helper.add_overlap_constraint(:meetings, :starts_at) }.to raise_error(ArgumentError, /not a range column/)
+    end
+
+    it 'rejects a missing column' do
+      connect(range_columns)
+      expect { helper.add_overlap_constraint(:meetings, :nope) }.to raise_error(ArgumentError, /no column nope/)
+    end
+  end
+
   context 'adapter guard' do
     it 'raises NotImplementedError for add_overlap_constraint on non-PostgreSQL adapters' do
       helper.connection = double('connection', adapter_name: 'SQLite')

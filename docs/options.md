@@ -9,10 +9,11 @@
 
 # Option Reference
 
-The validation is declared with exactly two attributes that define the range, plus an options hash:
+The validation is declared with the two attributes that define the range, plus an options hash — or, on PostgreSQL, with a single [native range column](./postgresql.md) attribute:
 
 ```ruby
 validates :starts_at, :ends_at, overlap: { <options> }
+validates :period, overlap: { <options> }    # PostgreSQL range column (tstzrange etc.)
 ```
 
 Attribute names may be plain column names, or `"table_name.column_name"` strings when validating through an association (combined with `query_options` for the join). Usage examples for every option are on the [Introduction](./_introduction.md) page.
@@ -37,6 +38,7 @@ Attribute names may be plain column names, or `"table_name.column_name"` strings
 - **Standard Rails options:** `if:` and `unless:` work as with any validation. `allow_nil` and `allow_blank` do NOT work with this validator.
 - **`overlapping_records`:** not an option — a method defined on every model with an overlap validation; returns an `ActiveRecord::Relation` of the conflicting records, freshly queried on every call.
 - **Column types:** any linearly orderable column type works; `:time` columns raise `OverlapValidator::UnsupportedColumnType`. See [Range Types and Domains](./range_types.md).
+- **Range columns (PostgreSQL):** with a single range-column attribute, `exclude_edges` and the shifts raise `ArgumentError` — bound inclusivity and shifting are part of the range value itself. See [PostgreSQL: Exclusion Constraints](./postgresql.md).
 
 ----------------
 

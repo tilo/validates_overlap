@@ -2,10 +2,11 @@
 
 ## 1.3.0 (UNRELEASED)
 
-RSpec tests: **126 → 177** (+51 tests)
+RSpec tests: **126 → 208** (+82 tests)
 
 ### New Features
 
+  - native PostgreSQL range columns: declare the validation with a single range-column attribute (`validates :period, overlap: { scope: :user_id }` on a `tsrange` / `tstzrange` / `daterange` / `int4range` / `int8range` / `numrange` column) — compared with PostgreSQL's `&&` operator, whose range algebra decides every edge case, so the validation and an exclusion constraint can never disagree: bound inclusivity comes from the stored value, a `NULL` range conflicts with nothing, `'(,)'` conflicts with everything. `exclude_edges` and the shifts raise `ArgumentError` for range columns; a single-attribute validation on a non-range column raises `OverlapValidator::UnsupportedColumnType`. `add_overlap_constraint :meetings, :period, scope: :user_id` generates the matching one-column exclusion constraint
   - `record.overlapping_records`, defined on every model with an overlap validation: freshly queries the conflicting records on demand and returns an `ActiveRecord::Relation` — always current, and no records are loaded until the result is used
   - `add_overlap_constraint` / `remove_overlap_constraint` migration helpers (PostgreSQL): generate a database-level exclusion constraint that closes the check-then-act race no validation can close — the range type is inferred from the column types, scope columns are compared with equality, and the edge semantics mirror the validator's; raises `NotImplementedError` on other adapters
   - `ValidatesOverlap::RescueExclusionViolation` (opt-in model concern): turns the constraint violation from the race window into a normal validation failure — `save` returns false with the overlap error set, `save!` raises `ActiveRecord::RecordInvalid`

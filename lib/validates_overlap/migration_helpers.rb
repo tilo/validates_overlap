@@ -11,20 +11,30 @@ module ValidatesOverlap
   #     remove_overlap_constraint :meetings
   #   end
   module MigrationHelpers
+    # Two scalar columns:  add_overlap_constraint :meetings, :starts_at, :ends_at, scope: :user_id
+    # One range column:    add_overlap_constraint :meetings, :period, scope: :user_id
+    #
     # scope:         column(s) compared with equality, mirroring the validator's :scope
     # name:          constraint name (default: <table>_no_overlap)
     # range_type:    PostgreSQL range type; inferred from the column types when omitted
     # exclude_edges: false (default) matches the validator's default — touching edges
     #                conflict; true builds half-open ranges, matching the validator's
-    #                exclude_edges: [start, end] where touching is allowed
-    def add_overlap_constraint(table, starts_at, ends_at, scope: [], name: nil, range_type: nil, exclude_edges: false)
+    #                exclude_edges: [start, end] where touching is allowed.
+    #                Not applicable to a range column (bounds live in the value)
+    def add_overlap_constraint(table, starts_at, ends_at = nil, scope: [], name: nil, range_type: nil, exclude_edges: false)
       assert_postgresql!('add_overlap_constraint')
       scope_columns = Array(scope)
       enable_extension 'btree_gist' unless scope_columns.empty?
-      range_type ||= overlap_range_type(table, starts_at, ends_at)
-      bounds = exclude_edges ? '[)' : '[]'
       elements = scope_columns.map { |column| "#{connection.quote_column_name(column)} WITH =" }
-      elements << "#{range_type}(#{connection.quote_column_name(starts_at)}, #{connection.quote_column_name(ends_at)}, '#{bounds}') WITH &&"
+      if ends_at.nil?
+        raise ArgumentError, 'validates_overlap: exclude_edges is not applicable to a range column — bound inclusivity is part of the range value itself' if exclude_edges
+        assert_range_column!(table, starts_at)
+        elements << "#{connection.quote_column_name(starts_at)} WITH &&"
+      else
+        range_type ||= overlap_range_type(table, starts_at, ends_at)
+        bounds = exclude_edges ? '[)' : '[]'
+        elements << "#{range_type}(#{connection.quote_column_name(starts_at)}, #{connection.quote_column_name(ends_at)}, '#{bounds}') WITH &&"
+      end
       execute <<~SQL
         ALTER TABLE #{connection.quote_table_name(table)}
           ADD CONSTRAINT #{connection.quote_column_name(overlap_constraint_name(table, name))}
@@ -38,6 +48,13 @@ module ValidatesOverlap
     end
 
     private
+
+    def assert_range_column!(table, column_name)
+      column = connection.columns(table).find { |col| col.name == column_name.to_s }
+      raise ArgumentError, "validates_overlap: no column #{column_name} on #{table}" unless column
+      return if OverlapValidator::RANGE_COLUMN_TYPES.include?(column.type)
+      raise ArgumentError, "validates_overlap: #{column_name} on #{table} is #{column.type.inspect}, not a range column — pass two columns for scalar range endpoints"
+    end
 
     def overlap_constraint_name(table, name)
       name || "#{table}_no_overlap"

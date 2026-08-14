@@ -40,6 +40,35 @@ class Meeting < ActiveRecord::Base
 end
 ```
 
+## Native range columns
+
+PostgreSQL can store a range as a single column value (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`). Declare the validation with that one attribute:
+
+```ruby
+create_table :meetings do |t|
+  t.tstzrange :period
+  t.integer :user_id
+end
+
+class Meeting < ActiveRecord::Base
+  validates :period, overlap: { scope: :user_id }
+end
+```
+
+The comparison uses PostgreSQL's `&&` operator, and PostgreSQL's own range algebra decides every edge case — which means the validation and an exclusion constraint can never disagree:
+
+- bound inclusivity is part of the stored value: a half-open `[10:00,12:00)` may touch the next range, a closed `[10:00,12:00]` conflicts with it — there is no `exclude_edges` option to configure
+- a `NULL` column means no range and conflicts with nothing; "spans everything" is spelled explicitly as the unbounded range `'(,)'`
+- the `empty` range conflicts with nothing
+- `exclude_edges`, `start_shift`, and `end_shift` raise `ArgumentError` for a range column — they have nothing to act on
+- a single-attribute validation on a non-range column raises `OverlapValidator::UnsupportedColumnType` at validate time
+
+All other options work unchanged (`scope`, `scoped_model`, `query_options`, custom messages), as do `overlapping_records` and `ValidatesOverlap::RescueExclusionViolation`. The constraint helper accepts the same single-column form:
+
+```ruby
+add_overlap_constraint :meetings, :period, scope: :user_id
+```
+
 ## What the helper generates
 
 The generated constraint is equivalent to this hand-written migration:
