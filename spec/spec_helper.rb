@@ -3,6 +3,9 @@ ENV['RAILS_ENV'] = 'test'
 
 require 'simplecov'
 SimpleCov.start do
+  # distinct command names per adapter/suite so results MERGE instead of
+  # replacing each other (SimpleCov replaces results with equal names)
+  command_name "rspec-#{ENV['DB'] || 'sqlite'}#{"-pg_specs#{ENV['PG_SPECS']}" if ENV['PG_SPECS']}"
   add_filter '/spec/'
 end
 
@@ -14,7 +17,7 @@ require 'pry'
 
 ActionMailer::Base.delivery_method = :test
 ActionMailer::Base.perform_deliveries = false
-ActionMailer::Base.default_url_options[:host] = 'test.com'
+ActionMailer::Base.default_url_options = { host: 'test.com' }
 
 Rails.backtrace_cleaner.remove_silencers!
 

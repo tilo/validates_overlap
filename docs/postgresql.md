@@ -29,6 +29,32 @@ class AddOverlapConstraintToMeetings < ActiveRecord::Migration[7.1]
 end
 ```
 
+Helper options:
+
+| Option             | Default              | Effect                                                                                                                                                                               |
+|--------------------|----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `scope`            | none                 | Column(s) compared with equality, mirroring the validator's `scope`                                                                                                                  |
+| `name`             | `<table>_no_overlap` | The constraint name — pass the same `name:` to `remove_overlap_constraint` when overridden                                                                                           |
+| `range_type`       | inferred             | PostgreSQL range type; inferred from the column types (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`)                                                    |
+| `exclude_edges`    | `false`              | `false` = inclusive edges, touching conflicts (the validator's default); `true` = half-open ranges, touching allowed. Not applicable to the single-column form                       |
+| `without_overlaps` | `false`              | PostgreSQL 18+, single range column with `scope` only: generate the standard-SQL temporal unique constraint `UNIQUE (scope, range WITHOUT OVERLAPS)` instead of the `EXCLUDE` clause |
+
+⚠️ **NULL scope values are not restricted by the constraint:** `NULL = NULL` is not true in SQL, so two overlapping rows whose scope value is NULL are both admitted by the database — while the validator does treat NULL scope values as matching each other. If your scope column can be NULL, add a `NOT NULL` constraint to it (recommended), or accept that NULL-scoped rows are only covered by the validation. `add_overlap_constraint` prints a warning when a scope column allows NULL.
+
+The helpers are reversible on Rails 7.1 and newer: `add_overlap_constraint` works inside a `def change` migration and `rails db:rollback` drops the constraint again. On Rails 6.1 and 7.0 the helpers issue raw SQL, so use `def up` / `def down` there, as in the example above.
+
+On PostgreSQL 18 and newer, `without_overlaps: true` generates the standard-SQL temporal unique constraint instead of the `EXCLUDE` clause — `UNIQUE (user_id, period WITHOUT OVERLAPS)`. PostgreSQL enforces it as an exclusion constraint, so violations raise the same error and `RescueExclusionViolation` works unchanged. It applies only to the single-range-column form with at least one `scope` column (PostgreSQL requires an ordinary column before `WITHOUT OVERLAPS`); empty range values are rejected by the database, while the validator treats an empty range as conflicting with nothing; and this form always issues raw SQL, so use `def up` / `def down`:
+
+```ruby
+def up
+  add_overlap_constraint :meetings, :period, scope: :user_id, without_overlaps: true
+end
+
+def down
+  remove_overlap_constraint :meetings
+end
+```
+
 ## Turning the violation into a validation error
 
 To turn the constraint violation from the race window into a normal validation failure (instead of an exception bubbling up), include the companion concern in your model — `save` then returns false with the overlap error set, and `save!` raises `ActiveRecord::RecordInvalid`:
@@ -38,6 +64,42 @@ class Meeting < ActiveRecord::Base
   validates :starts_at, :ends_at, overlap: { scope: :user_id }
   include ValidatesOverlap::RescueExclusionViolation
 end
+```
+
+## Native range columns
+
+PostgreSQL can store a range as a single column value (`tsrange`, `tstzrange`, `daterange`, `int4range`, `int8range`, `numrange`). Declare the validation with that one attribute:
+
+```ruby
+# migration
+create_table :meetings do |t|
+  t.tstzrange :period
+  t.integer :user_id
+end
+
+# model — one attribute instead of two
+class Meeting < ActiveRecord::Base
+  validates :period, overlap: { scope: :user_id }
+end
+
+Meeting.create!(user_id: 1, period: Time.utc(2030, 1, 1, 10)...Time.utc(2030, 1, 1, 12))
+Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 11)...Time.utc(2030, 1, 1, 13)).valid?  # => false (overlaps)
+Meeting.new(user_id: 1, period: Time.utc(2030, 1, 1, 12)...Time.utc(2030, 1, 1, 14)).valid?  # => true (half-open ranges may touch)
+Meeting.new(user_id: 1, period: nil).valid?                                                  # => true (no range, conflicts with nothing)
+```
+
+The comparison uses PostgreSQL's `&&` operator, and PostgreSQL's own range algebra decides every edge case — which means the validation and an exclusion constraint can never disagree:
+
+- bound inclusivity is part of the stored value: a half-open `[10:00,12:00)` may touch the next range, a closed `[10:00,12:00]` conflicts with it — there is no `exclude_edges` option to configure
+- a `NULL` column means no range and conflicts with nothing; "spans everything" is spelled explicitly as the unbounded range `'(,)'`
+- the `empty` range conflicts with nothing
+- `exclude_edges`, `start_shift`, and `end_shift` raise `ArgumentError` for a range column — they have nothing to act on
+- a single-attribute validation on a non-range column raises `OverlapValidator::UnsupportedColumnType` at validate time
+
+All other options work unchanged (`scope`, `scoped_model`, `query_options`, custom messages), as do `overlapping_records` and `ValidatesOverlap::RescueExclusionViolation`. The constraint helper accepts the same single-column form:
+
+```ruby
+add_overlap_constraint :meetings, :period, scope: :user_id
 ```
 
 ## What the helper generates
